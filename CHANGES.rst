@@ -2,6 +2,13 @@
 Changelog
 =========
 -------------------
+3.10.5 (2017-07-28)
+-------------------
+- Added ca-central-1 (Canada-Central), and ap-south-1 (Mumbai) CodeCommit support
+- Made .elasticbeanstalk/logs/local directory writable by all thorough 'eb local run'
+- Fixed Python 2.x character encoding bug that prevents 'eb appversion' from displaying
+
+-------------------
 3.10.4 (2017-07-14)
 -------------------
 - Fixed bug in solution stack determination logic for Multi-Container Docker 17.03.1-ce platform version
