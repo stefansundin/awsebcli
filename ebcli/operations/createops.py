@@ -10,7 +10,6 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-import time
 import re
 
 from cement.utils.misc import minimal_logger
@@ -20,8 +19,11 @@ from ebcli.operations import gitops, buildspecops, commonops
 from ebcli.lib import elasticbeanstalk, iam, utils
 from ebcli.lib.aws import InvalidParameterValueError
 from ebcli.core import io, fileoperations
-from ebcli.objects.exceptions import TimeoutError, AlreadyExistsError, \
-    NotAuthorizedError
+from ebcli.objects.exceptions import (
+    TimeoutError,
+    NotAuthorizedError,
+    InvalidOptionsError
+)
 from ebcli.resources.strings import strings, responses, prompts
 from ..resources.statics import iam_attributes
 import json
@@ -70,7 +72,7 @@ def make_new_env(env_request, branch_default=False, process_app_version=False,
                                              build_config=build_config)
 
         if build_config is not None:
-            buildspecops.stream_build_configuration_app_version_creation(env_request.app_name, env_request.version_label)
+            buildspecops.stream_build_configuration_app_version_creation(env_request.app_name, env_request.version_label, build_config)
         elif process_app_version is True:
             success = commonops.wait_for_processed_app_versions(env_request.app_name,
                                                                 [env_request.version_label])
@@ -256,3 +258,26 @@ def _get_default_service_trust_document():
         }
     }]
 }'''
+
+
+def get_and_validate_tags(tags):
+    if not tags:
+        return []
+
+    tags = tags.strip().strip('"').strip('\'')
+    tags = tags.split(',')
+    tag_list = []
+    if len(tags) > 47:
+        raise InvalidOptionsError(strings['tags.max'])
+    for t in tags:
+        # validate
+        if not re.match('^[\w\s.:/+%@-]{1,128}=[\w\s.:/+=@-]{0,256}$', t):
+            raise InvalidOptionsError(strings['tags.invalidformat'])
+        else:
+            # build tag
+            key, value = t.split('=', 1)
+            tag_list.append(
+                {'Key': key,
+                 'Value': value}
+            )
+    return tag_list

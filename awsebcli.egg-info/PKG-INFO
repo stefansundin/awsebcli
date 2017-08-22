@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: awsebcli
-Version: 3.10.5
+Version: 3.10.6
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -246,6 +246,14 @@ Description: ======
         =========
         Changelog
         =========
+        -------------------
+        3.10.6 (2017-08-21)
+        -------------------
+        - Fixed 5-minute timeout bug involving CLI giving up on CodeBuild despite server-side success
+        - Fixed module-creation bug where `eb create` exits because it cannot find the .elasticbeanstalk directory
+        - Increased limit on the number of tags that can be created during environment creation to 47
+        - Fixed environment creation failures when platform names specified are from the list retrieved by `eb platform list`.
+        
         -------------------
         3.10.5 (2017-07-28)
         -------------------
