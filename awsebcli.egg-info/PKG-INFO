@@ -1,11 +1,12 @@
 Metadata-Version: 1.1
 Name: awsebcli
-Version: 3.10.6
+Version: 3.11.0
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
 Author-email: aws-eb-cli@amazon.com
 License: Apache License 2.0
+Description-Content-Type: UNKNOWN
 Description: ======
         EB-CLI
         ======
@@ -246,6 +247,12 @@ Description: ======
         =========
         Changelog
         =========
+        -------------------
+        3.11.0 (2017-09-26)
+        -------------------
+        - Added support for creation of environments with Network Load Balancers
+        - Fixed bug that caused `eb restore` to fail to begin
+        
         -------------------
         3.10.6 (2017-08-21)
         -------------------
