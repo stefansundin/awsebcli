@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: awsebcli
-Version: 3.11.0
+Version: 3.12.0
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -247,6 +247,11 @@ Description: ======
         =========
         Changelog
         =========
+        -------------------
+        3.12.0 (2017-10-10)
+        -------------------
+         - Added support for tagging Environments
+        
         -------------------
         3.11.0 (2017-09-26)
         -------------------
