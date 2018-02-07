@@ -406,7 +406,7 @@ prompts = {
     'vpc.ec2subnets': 'Enter a comma-separated list of Amazon EC2 subnets',
     'vpc.elbsubnets': 'Enter a comma-separated list of Amazon ELB subnets',
     'vpc.securitygroups': 'Enter a comma-separated list of Amazon VPC security groups',
-    'vpc.elbpublic': 'Do you want the load balencer to be public? (Select no for internal)',
+    'vpc.elbpublic': 'Do you want the load balancer to be public? (Select no for internal)',
     'vpc.dbsubnets': 'Enter a comma-separated list of database subnets',
     'logs.retrieving': 'Retrieving logs...',
     'swap.envprompt': 'Select the environment with which you want to swap CNAMEs.',
@@ -661,6 +661,7 @@ flag_text = {
 responses = {
     'event.completewitherrors': 'Create environment operation is complete, but with errors.',
     'event.launched_environment': 'Launched environment',
+    'event.platform_ami_region_service_region_mismatch': 'Unmatched region for created AMI',
     'event.platformdeletesuccess': 'Successfully deleted platform version',
     'event.platformdeletefailed': 'Failed to delete platform version',
     'event.platformcreatefailed': 'Failed to create platform version',

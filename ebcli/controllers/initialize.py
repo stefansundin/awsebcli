@@ -15,17 +15,29 @@ import sys
 import os.path
 
 from cement.utils.misc import minimal_logger
-from ebcli.core.ebglobals import Constants
-from ebcli.operations.commonops import is_platform_arn
 
 from ebcli.core import fileoperations, io
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.lib import utils, elasticbeanstalk, codecommit, aws
 from ebcli.objects.sourcecontrol import SourceControl
 from ebcli.objects import solutionstack, region as regions
-from ebcli.objects.exceptions import NotInitializedError, NoRegionError, \
-    InvalidProfileError, ServiceError, ValidationError, CommandError
-from ebcli.operations import commonops, initializeops, sshops, gitops
+from ebcli.objects.platform import PlatformVersion
+from ebcli.objects.exceptions import(
+    CommandError,
+    InvalidProfileError,
+    NoRegionError,
+    NotInitializedError,
+    ServiceError,
+    ValidationError,
+)
+from ebcli.operations import (
+	commonops,
+	gitops,
+	initializeops,
+	platformops,
+	solution_stack_ops,
+	sshops
+)
 from ebcli.resources.strings import strings, flag_text, prompts
 
 LOG = minimal_logger(__name__)
@@ -119,13 +131,12 @@ class InitController(AbstractBaseController):
             if fileoperations.env_yaml_exists():
                 env_yaml_platform = fileoperations.get_platform_from_env_yaml()
                 if env_yaml_platform:
-                    platform = solutionstack.SolutionStack(env_yaml_platform).version
+                    platform = solutionstack.SolutionStack(env_yaml_platform).platform_shorthand
                     self.solution = platform
                     platform_set = True
 
             if not platform_set:
-                result = commonops.prompt_for_solution_stack()
-                self.solution = result.version
+                self.solution = solution_stack_ops.get_solution_stack_from_customer().platform_shorthand
 
         # Select CodeBuild image if BuildSpec is present do not prompt or show if we are non-interactive
         if fileoperations.build_spec_exists() and not self.force_non_interactive:
@@ -164,14 +175,21 @@ class InitController(AbstractBaseController):
         if gitops.git_management_enabled() and not self.interactive:
             default_branch_exists = True
 
-        prompt_codecommit = True
-        # Do not prompt if we are in non-interactive mode, the region is not supported for CodeCommit,
-        #  the specified source is from CodeCommit OR we already have default CodeCommit values set.
-        if self.force_non_interactive \
-                or not codecommit.region_supported(self.region) \
-                or self.source is not None \
-                or default_branch_exists:
+        # Prompt customer to opt into CodeCommit unless one of the follows holds:
+        if self.force_non_interactive:
             prompt_codecommit = False
+        elif not codecommit.region_supported(self.region):
+            prompt_codecommit = False
+        elif self.source:
+            # Do not prompt if customer has already specified a code source to
+            # associate the EB workspace with
+            prompt_codecommit = False
+        elif default_branch_exists:
+            # Do not prompt if customer has already configured the EB application
+            # in the present working directory with Git
+            prompt_codecommit = False
+        else:
+            prompt_codecommit = True
 
         # Prompt for interactive CodeCommit
         if prompt_codecommit:
@@ -261,16 +279,13 @@ class InitController(AbstractBaseController):
         # Get solution stack from config file, if exists
         if not solution_string:
             try:
-                solution_string = commonops.get_default_solution_stack()
+                solution_string = solution_stack_ops.get_default_solution_stack()
             except NotInitializedError:
                 solution_string = None
 
         # Validate that the platform exists
         if solution_string:
-            if is_platform_arn(solution_string):
-                elasticbeanstalk.describe_platform_version(solution_string)
-            else:
-                commonops.get_solution_stack(solution_string)
+            solution_stack_ops.find_solution_stack_from_string(solution_string)
 
         return solution_string
 
@@ -389,14 +404,13 @@ class InitController(AbstractBaseController):
                     if fileoperations.env_yaml_exists():
                         env_yaml_platform = fileoperations.get_platform_from_env_yaml()
                         if env_yaml_platform:
-                            platform = solutionstack.SolutionStack(env_yaml_platform).version
+                            platform = solutionstack.SolutionStack(env_yaml_platform).platform_shorthand
                             solution = platform
                             io.echo(strings['init.usingenvyamlplatform'].replace('{platform}', platform))
                             platform_set = True
 
                     if not platform_set:
-                        result = commonops.prompt_for_solution_stack()
-                        solution = result.version
+                        solution = solution_stack_ops.get_solution_stack_from_customer()
 
                 initializeops.setup(self.app_name, self.region,
                                     solution)
@@ -447,8 +461,7 @@ def get_repository_interactive():
     repo_list = codecommit.list_repositories()["repositories"]
 
     current_repository = source_control.get_current_repository()
-    current_repository = fileoperations.get_current_directory_name() \
-        if current_repository is None else current_repository
+    current_repository = current_repository or fileoperations.get_current_directory_name()
 
     # If there are existing repositories prompt the user to pick one
     # otherwise set default as the file name

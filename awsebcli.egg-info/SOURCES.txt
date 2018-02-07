@@ -34,6 +34,9 @@ ebcli/bundled/_compose/cli/main.py
 ebcli/bundled/_compose/cli/multiplexer.py
 ebcli/bundled/_compose/cli/utils.py
 ebcli/bundled/_compose/cli/verbose_proxy.py
+ebcli/bundled/_compose/docker_py_handler/__init__.py
+ebcli/bundled/_compose/docker_py_handler/client.py
+ebcli/bundled/_compose/docker_py_handler/installer.py
 ebcli/containers/__init__.py
 ebcli/containers/abstractcontainer.py
 ebcli/containers/commands.py
@@ -146,6 +149,7 @@ ebcli/lib/botocoredata/elasticbeanstalk/2010-12-01/paginators-1.json
 ebcli/lib/botocoredata/elasticbeanstalk/2010-12-01/service-2.json
 ebcli/lib/botocoredata/elbv2/2015-12-01/service-2.json
 ebcli/objects/__init__.py
+ebcli/objects/api_filters.py
 ebcli/objects/application.py
 ebcli/objects/buildconfiguration.py
 ebcli/objects/conversionconfiguration.py
@@ -185,6 +189,7 @@ ebcli/operations/platformops.py
 ebcli/operations/restoreops.py
 ebcli/operations/saved_configs.py
 ebcli/operations/scaleops.py
+ebcli/operations/solution_stack_ops.py
 ebcli/operations/sshops.py
 ebcli/operations/statusops.py
 ebcli/operations/swapops.py
