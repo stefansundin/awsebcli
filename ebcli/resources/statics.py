@@ -11,7 +11,19 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-# TODO: Merge into ebcli/lib/iam_role.py when the code has been merged in
+
+class logs_operations_constants(object):
+
+    class LOG_SOURCES(object):
+        ALL_LOG_SOURCES = 'all'
+        ENVIRONMENT_HEALTH_LOG_SOURCE = 'environment-health'
+        INSTANCE_LOG_SOURCE = 'instance'
+
+    class INFORMATION_FORMAT(object):
+        BUNDLE = 'bundle'
+        TAIL = 'tail'
+
+
 class iam_documents(object):
     EC2_ASSUME_ROLE_PERMISSION = '{"Version": "2008-10-17","Statement": [{"Action":' \
                                  ' "sts:AssumeRole","Principal": {"Service": ' \
@@ -45,6 +57,7 @@ class namespaces(object):
     ROLLING_UPDATES = 'aws:autoscaling:updatepolicy:rollingupdate'
     VPC = 'aws:ec2:vpc'
     CLOUDWATCH_LOGS = 'aws:elasticbeanstalk:cloudwatch:logs'
+    CLOUDWATCH_ENVIRONMENT_HEALTH_LOGS = 'aws:elasticbeanstalk:cloudwatch:logs:health'
 
 
 class option_names(object):
@@ -82,8 +95,13 @@ class option_names(object):
     SYSTEM_TYPE = 'SystemType'
     VPC_ID = 'VPCId'
     STREAM_LOGS = 'StreamLogs'
+    CLOUDWATCH_ENVIRONMENT_HEALTH_LOGS_ENABLED = 'HealthStreamingEnabled'
     DELETE_ON_TERMINATE = 'DeleteOnTerminate'
     RETENTION_DAYS = 'RetentionInDays'
+
+
+class option_values(object):
+    SYSTEM_TYPE__ENHANCED = 'enhanced'
 
 
 class elb_names(object):
@@ -94,3 +112,7 @@ class elb_names(object):
     CLASSIC_VERSION = 'classic'
     APPLICATION_VERSION = 'application'
     NETWORK_VERSION = 'network'
+
+
+class ec2_instance_statuses(object):
+    IN_SERVICE = 'InService'

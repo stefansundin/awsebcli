@@ -10,28 +10,24 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-
-import locale
-locale.setlocale(locale.LC_ALL, 'C')
-
-import time
-import threading
 from collections import defaultdict
-from datetime import timedelta
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from dateutil import tz
+import locale
+import threading
 import traceback
-from copy import copy
 
-from cement.utils.misc import minimal_logger
 from botocore.compat import six
+from cement.utils.misc import minimal_logger
+import copy
 
-from ..lib import elasticbeanstalk, utils, elb, elbv2, ec2
-from ..lib.aws import InvalidParameterValueError
-from ..resources.strings import responses, strings
-from ..resources.statics import elb_names
+from ebcli.lib import elasticbeanstalk, utils
+from ebcli.lib.aws import InvalidParameterValueError
+from ebcli.resources.strings import responses
+
 Queue = six.moves.queue.Queue
-
+locale.setlocale(locale.LC_ALL, 'C')
 LOG = minimal_logger(__name__)
 
 
@@ -43,8 +39,6 @@ class DataPoller(object):
         self.env_name = env_name
         self.data_queue = Queue()
         self.data = None
-        self.t = None
-        self.running = False
         self.no_instances_time = None
         self.instance_info = defaultdict(dict)
 
@@ -59,85 +53,50 @@ class DataPoller(object):
         return new_data
 
     def start_background_polling(self):
-        self.running = True
-        self.t = threading.Thread(
-            target=self._poll_for_health_data
-        )
-        self.t.daemon = True
-        self.t.start()
+        data_poller_thread = threading.Thread(target=self._poll_for_health_data)
+        data_poller_thread.daemon = True
+        data_poller_thread.start()
 
-    def _poll_for_health_data(self):
-        LOG.debug('Starting data poller child thread')
-        try:
-            LOG.debug('Polling for data')
-            while True:
-                # Grab data
-                try:
-                    data = self._get_health_data()
-
-                    # Put it in queue
-                    self.data_queue.put(data)
-                except Exception as e:
-                    if e.message == responses['health.nodescribehealth']:
-                        # Environment probably switching between health monitoring types
-                        LOG.debug('Swallowing \'DescribeEnvironmentHealth is not supported\' exception')
-                        LOG.debug('Nothing to do as environment should be transitioning')
-                    else:
-                        # Not a recoverable error, raise it
-                        raise e
-
-                # Now sleep while we wait for more data
-                refresh_time = data['environment'].get('RefreshedAt', None)
-                time.sleep(self._get_sleep_time(refresh_time))
-
-        except (SystemError, SystemExit, KeyboardInterrupt) as e:
-            LOG.debug('Exiting due to: {}'.format(e))
-        except InvalidParameterValueError as e:
-            # Environment no longer exists, exit
-            LOG.debug(e)
-        except Exception as e:
-            traceback.print_exc()
-        finally:
-            self.data_queue.put({})
-
-    def _get_sleep_time(self, refresh_time):
-        if refresh_time is None:
-            LOG.debug('No refresh time. (11 seconds until next refresh)')
-            return 2
-        delta = utils.get_delta_from_now_and_datetime(refresh_time)
-
-        countdown = 11 - delta.seconds
-        LOG.debug('health time={}. '
-                  'current={}. ({} seconds until next refresh)'
-                  .format(utils.get_local_time_as_string(refresh_time),
-                          utils.get_local_time_as_string(
-                              datetime.now()), countdown))
-        return max(0.5, min(countdown, 11))  # x in range [0.5, 11]
-
-    def _account_for_clock_drift(self, environment_health):
-        time_str = environment_health['ResponseMetadata']['date']
-        time = datetime.strptime(time_str, '%a, %d %b %Y %H:%M:%S %Z')
+    @staticmethod
+    def _account_for_clock_drift(datetime_str):
+        time = datetime.strptime(datetime_str, '%a, %d %b %Y %H:%M:%S %Z')
         delta = utils.get_delta_from_now_and_datetime(time)
         LOG.debug(u'Clock offset={0}'.format(delta))
         LOG.debug(delta)
 
-        try:
-            environment_health['RefreshedAt'] += delta
-        except KeyError:
-            environment_health['RefreshedAt'] = None
+        return delta
+
+    @staticmethod
+    def _get_sleep_time(refresh_time):
+        if not refresh_time:
+            return 2
+
+        delta = utils.get_delta_from_now_and_datetime(refresh_time)
+
+        countdown = 11 - delta.seconds
+        LOG.debug(
+            'health time={}. current={}. ({} seconds until next refresh)'.format(
+                utils.get_local_time_as_string(refresh_time),
+                utils.get_local_time_as_string(datetime.now()),
+                countdown
+            )
+        )
+
+        return max(0.5, min(countdown, 11))  # x in range [0.5, 11]
 
     def _get_health_data(self):
-        environment_health = elasticbeanstalk.\
-            get_environment_health(self.env_name)
+        environment_health = elasticbeanstalk.get_environment_health(self.env_name)
         instance_health = elasticbeanstalk.get_instance_health(self.env_name)
         LOG.debug('EnvironmentHealth-data:{}'.format(environment_health))
         LOG.debug('InstanceHealth-data:{}'.format(instance_health))
-        self._account_for_clock_drift(environment_health)
+
+        if environment_health.get('RefreshedAt'):
+            environment_health['RefreshedAt'] += self._account_for_clock_drift(environment_health['ResponseMetadata']['date'])
 
         token = instance_health.get('NextToken', None)
+
         # Collapse data into flatter tables/dicts
-        environment_health = collapse_environment_health_data(
-            environment_health)
+        environment_health = collapse_environment_health_data(environment_health)
         instance_health = collapse_instance_health_data(instance_health)
 
         while token is not None:
@@ -163,21 +122,56 @@ class DataPoller(object):
         LOG.debug('collapsed-data:{}'.format(data))
         return data
 
+    def _poll_for_health_data(self):
+        LOG.debug('Starting data poller child thread')
+        while True:
+            try:
+                data = self._get_health_data()
+                self.data_queue.put(data)
+                refresh_time = data['environment'].get('RefreshedAt', None)
+
+                sleep_time = self._get_sleep_time(refresh_time)
+                LOG.debug('Sleeping for {} second(s)'.format(sleep_time))
+                time.sleep(sleep_time)
+            except (SystemError, SystemExit, KeyboardInterrupt) as e:
+                LOG.debug('Exiting due to: {}'.format(e.__class__.__name__))
+
+                break
+            except InvalidParameterValueError as e:
+                # Environment no longer exists, exit
+                LOG.debug(e)
+
+                break
+            except Exception as e:
+                if str(e) == responses['health.nodescribehealth']:
+                    traceback.print_exc()
+
+                    # Environment probably switching between health monitoring types
+                    LOG.debug("Swallowing 'DescribeEnvironmentHealth is not supported' exception")
+                    LOG.debug('Nothing to do as environment should be transitioning')
+
+                    break
+                else:
+                    # Not a recoverable error, raise it
+                    raise e
+
+        self.data_queue.put({})
+
 
 def collapse_environment_health_data(environment_health):
-    result = dict()
-    request_count = environment_health.get('ApplicationMetrics', {}) \
-        .get('RequestCount', 0)
+    application_metrics = environment_health.get('ApplicationMetrics', {})
 
-    latency_dict = environment_health.get('ApplicationMetrics', {})\
-        .pop('Latency', {})
-    result.update(_format_latency_dict(latency_dict, request_count))
+    request_count = application_metrics.get('RequestCount', 0)
+    latency_dict = application_metrics.pop('Latency', {})
 
-    result['requests'] = request_count/10.0
-    statuses = environment_health.get('ApplicationMetrics', {})\
-        .pop('StatusCodes', {})
+    result = _format_latency_dict(latency_dict, request_count)
+
+    requests_per_second = request_count/10.0
+    result['requests'] = requests_per_second
+    statuses = application_metrics.pop('StatusCodes', {})
+
     for k, v in six.iteritems(statuses):
-        convert_data_to_percentage(statuses, k, request_count)
+        _convert_data_to_percentage(statuses, k, request_count)
     result.update(statuses)
     result.update(environment_health.pop('ApplicationMetrics', {}))
     total = 0
@@ -188,8 +182,7 @@ def collapse_environment_health_data(environment_health):
     result.update(environment_health)
 
     causes = result.get('Causes', [])
-    cause = causes[0] if causes else ''
-    result['Cause'] = cause
+    result['Cause'] = causes[0] if causes else ''
 
     return result
 
@@ -239,45 +232,60 @@ def collapse_instance_health_data(instances_health):
 
         # Convert counts to percentages
         for key in {'Status_2xx', 'Status_3xx', 'Status_4xx', 'Status_5xx'}:
-            convert_data_to_percentage(instance, key, request_count,
+            _convert_data_to_percentage(instance, key, request_count,
                                        add_sort_column=True)
 
         # Add status sort index
-        instance['status_sort'] = _get_health_sort_order(instance['HealthStatus'])
+        instance['status_sort'] = __get_health_sort_order(instance['HealthStatus'])
 
         result.append(instance)
 
     return result
 
 
+def format_float(flt, number_of_places):
+    format_string = '{0:.' + str(number_of_places) + 'f}'
+    return format_string.format(flt)
+
+
 def format_time_since(timestamp):
-    ret = ''
-    try:
-        delta = datetime.now(tz.tzlocal()) - utils.get_local_time(timestamp)
+    if not timestamp:
+        return '-'
 
-        days = delta.days
-        minutes = delta.seconds // 60
-        hours = minutes // 60
+    delta = _datetime_utcnow_wrapper() - timestamp
 
-        if days > 0:
-            ret = '{0} day{s}'\
-                .format(days, s=_get_s(days))
-        elif hours > 0:
-            ret = '{0} hour{s}'\
-                .format(hours, s=_get_s(hours))
-        elif minutes > 0:
-           ret = '{0} min{s}'\
-                .format(minutes, s=_get_s(minutes))
-        else:
-            ret = '{0} secs'.format(delta.seconds)
-    except KeyError as e:
-        ret = '-'
-    finally:
-        return ret
+    days = delta.days
+    minutes = delta.seconds // 60
+    hours = minutes // 60
+
+    if days > 0:
+        return '{0} day{s}'.format(days, s=__plural_suffix(days))
+    elif hours > 0:
+        return '{0} hour{s}'.format(hours, s=__plural_suffix(hours))
+    elif minutes > 0:
+        return '{0} min{s}'.format(minutes, s=__plural_suffix(minutes))
+    else:
+        return '{0} secs'.format(delta.seconds)
+
+
+def _convert_data_to_percentage(data, index, total, add_sort_column=False):
+    if total > 0:
+        percent = (data.get(index, 0) / (total * 1.0)) * 100.0
+        # Now convert to string
+        representation = format_float(percent, 1)
+        data[index] = representation
+
+        # Convert back to float for sorting
+        if add_sort_column:
+            data[index + '_sort'] = float(representation)
+
+
+def _datetime_utcnow_wrapper():
+    return datetime.now(tz.tzutc())
 
 
 def _format_latency_dict(latency_dict, request_count):
-    new_dict = copy(latency_dict)
+    new_dict = copy.copy(latency_dict)
     for k, v in six.iteritems(latency_dict):
         new_dict[k + '_sort'] = v
         representation = format_float(v, 3)
@@ -292,28 +300,7 @@ def _format_latency_dict(latency_dict, request_count):
     return new_dict
 
 
-def _get_s(number):
-    return 's' if number > 1 else ''
-
-
-def convert_data_to_percentage(data, index, total, add_sort_column=False):
-    if total > 0:
-        percent = (data.get(index, 0) / (total * 1.0)) * 100.0
-        # Now convert to string
-        representation = format_float(percent, 1)
-        data[index] = representation
-
-        # Convert back to float for sorting
-        if add_sort_column:
-            data[index + '_sort'] = float(representation)
-
-
-def format_float(flt, number_of_places):
-    format_string = '{0:.' + str(number_of_places) + 'f}'
-    return format_string.format(flt)
-
-
-def _get_health_sort_order(health):
+def __get_health_sort_order(health):
     health_order = dict(
         (v, k) for k, v in enumerate([
             'Severe',
@@ -328,3 +315,7 @@ def _get_health_sort_order(health):
         ])
     )
     return health_order[health]
+
+
+def __plural_suffix(number):
+    return 's' if number > 1 else ''

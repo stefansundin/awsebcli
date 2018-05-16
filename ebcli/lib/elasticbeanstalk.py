@@ -256,9 +256,8 @@ def clone_environment(clone):
 
 
 def _api_to_environment(api_dict, want_solution_stack = False):
-    # Convert solution_stack and tier to objects
     try:
-        if want_solution_stack:
+        if want_solution_stack or api_dict['SolutionStackName'] == 'custom':
             solution_stack_name = api_dict['SolutionStackName']
             platform = SolutionStack(solution_stack_name)
         else:
@@ -529,16 +528,19 @@ def get_environment(app_name=None, env_name=None, env_id=None, include_deleted=F
         return _api_to_environment(envs[0], want_solution_stack)
 
 
-def get_environments(env_names=[]):
+def get_environments(env_names=None):
     LOG.debug('Inside get_environments api wrapper')
     result = _make_api_call('describe_environments',
-                            EnvironmentNames=env_names,
+                            EnvironmentNames=env_names or [],
                             IncludeDeleted=False)
 
     envs = result['Environments']
-    if len(envs) < 1:
-        raise NotFoundError('Could not find any environments '
-                            'from the list: [' + env_names + ']')
+    if not envs and env_names:
+        raise NotFoundError(
+            'Could not find any environments from the list: {}'.format(
+                ', '.join(env_names)
+            )
+        )
     return [_api_to_environment(env) for env in envs]
 
 
@@ -776,6 +778,10 @@ def get_environment_health(env_name, attributes=None):
                             EnvironmentName=env_name,
                             AttributeNames=attributes)
     return result
+
+
+def get_environment_tier_definition():
+    return get_environment(app_name=None, env_name=None).tier
 
 
 def get_instance_health(env_name, next_token=None, attributes=None):

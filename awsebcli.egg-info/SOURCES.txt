@@ -34,9 +34,6 @@ ebcli/bundled/_compose/cli/main.py
 ebcli/bundled/_compose/cli/multiplexer.py
 ebcli/bundled/_compose/cli/utils.py
 ebcli/bundled/_compose/cli/verbose_proxy.py
-ebcli/bundled/_compose/docker_py_handler/__init__.py
-ebcli/bundled/_compose/docker_py_handler/client.py
-ebcli/bundled/_compose/docker_py_handler/installer.py
 ebcli/containers/__init__.py
 ebcli/containers/abstractcontainer.py
 ebcli/containers/commands.py
@@ -158,6 +155,7 @@ ebcli/objects/environmentsettings.py
 ebcli/objects/event.py
 ebcli/objects/exceptions.py
 ebcli/objects/lifecycleconfiguration.py
+ebcli/objects/log_stream.py
 ebcli/objects/platform.py
 ebcli/objects/region.py
 ebcli/objects/requests.py

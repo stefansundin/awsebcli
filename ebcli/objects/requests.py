@@ -10,10 +10,46 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
+import copy
 
 from ..lib import ec2, utils
+from ebcli.objects.solutionstack import SolutionStack
+from ebcli.objects.platform import PlatformVersion
 from ..resources.strings import strings
 from ..resources.statics import namespaces, option_names
+
+
+class OptionSetting(object):
+    def __init__(self, namespace, option_name, value):
+        self.namespace = namespace
+        self.option_name = option_name
+        self.value = value
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+    def __hash__(self):
+        """
+        __hash__ method for `OptionSetting` to enable comparison of sets of `OptionSetting`s objects.
+        :return: a hash of the `tuple` of the `OptionSetting` attributes
+        """
+        return hash((self.namespace, self.option_name, self.value))
+
+    @classmethod
+    def option_settings_from_json(cls, json_array):
+        option_settings = set()
+        for option_setting in json_array:
+            option_settings.add(
+                OptionSetting(
+                    namespace=option_setting['Namespace'],
+                    option_name=option_setting['OptionName'],
+                    value=option_setting['Value'],
+                )
+            )
+
+        return option_settings
+
+
 
 class CreateEnvironmentRequest(object):
 
@@ -23,7 +59,7 @@ class CreateEnvironmentRequest(object):
                  single_instance=False, key_name=None,
                  sample_application=False, tags=None, scale=None,
                  database=None, vpc=None, template_name=None, group_name=None,
-                 elb_type=None, platform_arn=None):
+                 elb_type=None):
         self.app_name = app_name
         self.cname = cname
         self.env_name = env_name
@@ -37,7 +73,6 @@ class CreateEnvironmentRequest(object):
         self.template_name = template_name
         self.tier = tier
         self.version_label = version_label
-        self.platform_arn = platform_arn
         self.group_name = group_name
         if tags is None:
             self.tags = []
@@ -70,10 +105,16 @@ class CreateEnvironmentRequest(object):
                 self.scale = str(scale)
 
     def __eq__(self, other):
-        return self.__dict__ == other.__dict__
+        self_dict = copy.deepcopy(self.__dict__)
+        other_dict = copy.deepcopy(other.__dict__)
+
+        self_dict['option_settings'] = OptionSetting.option_settings_from_json(self_dict.get('option_settings', []))
+        other_dict['option_settings'] = OptionSetting.option_settings_from_json(other_dict.get('option_settings', []))
+
+        return self_dict == other_dict
 
     def __ne__(self, other):
-        return self.__dict__ != other.__dict__
+        return not self == other
 
     def add_option_setting(self, namespace, option_name, value, resource=None):
         setting = {'Namespace': namespace,
@@ -103,9 +144,10 @@ class CreateEnvironmentRequest(object):
             'OptionSettings': self.option_settings,
             }
         if self.platform:
-            kwargs['SolutionStackName'] = self.platform.name
-        if self.platform_arn:
-            kwargs['PlatformArn'] = self.platform_arn
+            if isinstance(self.platform, SolutionStack):
+                kwargs['SolutionStackName'] = self.platform.name
+            elif isinstance(self.platform, PlatformVersion):
+                kwargs['PlatformArn'] = self.platform.name
         if self.description:
             kwargs['Description'] = self.description
         if self.cname:
@@ -271,13 +313,13 @@ class CreateEnvironmentRequest(object):
 
 class CloneEnvironmentRequest(CreateEnvironmentRequest):
     def __init__(self, app_name=None, env_name=None, original_name=None,
-                 cname=None, platform=None, scale=None, tags=None, platform_arn=None):
+                 cname=None, platform=None, scale=None, tags=None):
         if not original_name:
             raise TypeError(self.__class__.__name__ + ' requires key-word argument clone_name')
         self.original_name = original_name
         super(CloneEnvironmentRequest, self).__init__(
             app_name=app_name, env_name=env_name, cname=cname,
-            platform=platform, scale=scale, tags=tags, platform_arn=platform_arn
+            platform=platform, scale=scale, tags=tags
         )
         self.description = strings['env.clonedescription']. \
             replace('{env-name}', self.env_name)

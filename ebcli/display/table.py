@@ -22,9 +22,7 @@ LOG = minimal_logger(__name__)
 class Table(object):
     def __init__(self, name, columns=None, screen=None):
         self.name = name
-        if columns is None:
-            columns = {}
-        self.columns = columns
+        self.columns = columns or []
         self.visible = True
         self.data = None
         self.width = None
@@ -267,7 +265,4 @@ class Column(object):
         self.fit_size = size
         self.key = key
         self.justify = justify
-        if sort_key:
-            self.sort_key = sort_key
-        else:
-            self.sort_key = self.key
+        self.sort_key = sort_key or self.key

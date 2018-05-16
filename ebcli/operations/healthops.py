@@ -24,26 +24,34 @@ from ..display.specialtables import RequestTable, StatusTable
 from ebcli.objects.platform import PlatformVersion
 from ..objects.exceptions import NotSupportedError
 from ..objects.solutionstack import SolutionStack
-from ..resources.statics import namespaces, option_names
+from ..resources.statics import namespaces, option_names, option_values
 
 LOG = minimal_logger(__name__)
 
 
-def display_interactive_health(app_name, env_name, refresh,
-                               mono, default_view):
+def display_interactive_health(
+        app_name,
+        env_name,
+        refresh,
+        mono,
+        default_view
+):
     env = elasticbeanstalk.describe_configuration_settings(app_name, env_name)
-    option_settings = env.get('OptionSettings')
     health_type = elasticbeanstalk.get_option_setting(
-        option_settings,
+        env.get('OptionSettings'),
         namespaces.HEALTH_SYSTEM,
         option_names.SYSTEM_TYPE)
 
-    if health_type == 'enhanced':
+    if health_type == option_values.SYSTEM_TYPE__ENHANCED:
+        LOG.debug('Platform has enhanced health capabilities')
+
         poller = DataPoller
-        # Create dynamic screen
         screen = Screen()
-        create_health_tables(screen, env)
+        platform = PlatformVersion(env['PlatformArn']) if env.get('PlatformArn') else SolutionStack(env['SolutionStackName'])
+        create_health_tables(screen, platform)
     elif env['Tier']['Name'] == 'WebServer':
+        LOG.debug('Platform has basic health capabilities')
+
         poller = TraditionalHealthDataPoller
         screen = TraditionalHealthScreen()
         create_traditional_health_tables(screen)
@@ -62,7 +70,11 @@ def display_interactive_health(app_name, env_name, refresh,
         term.return_cursor_to_normal()
 
 
-def create_health_tables(screen, env):
+def create_health_tables(screen, platform):
+    LOG.debug('Adding tables the `eb health` screen')
+
+    is_windows_platform = 'windows' in platform.name.lower()
+
     screen.add_table(StatusTable('health', columns=[
         Column('instance-id', None, 'InstanceId', 'left'),
         Column('status', 10, 'HealthStatus', 'left', 'status_sort'),
@@ -81,29 +93,37 @@ def create_health_tables(screen, env):
         Column('p50', 7, 'P50', 'right', 'P50_sort'),
         Column('p10', 7, 'P10', 'right', 'P10_sort'),
     ]))
+
     screen.add_table(Table('cpu', columns=[
         Column('instance-id', None, 'InstanceId', 'left'),
         Column('type', None, 'InstanceType', 'left'),
         Column('az', None, 'AvailabilityZone', 'left'),
-        Column('running', 10, 'running', 'left', 'LaunchedAt'),
-        Column('load 1', 7, 'load1', 'right'),
-        Column('load 5', 7, 'load5', 'right'),
-        Column('user%', 10, 'User', 'right'),
-        Column('nice%', 6, 'Nice', 'right'),
-        Column('system%', 8, 'System', 'right'),
-        Column('idle%', 6, 'Idle', 'right'),
-        Column('iowait%', 9, 'IOWait', 'right'),
-    ]))
+        Column('running', 10, 'running', 'left', 'LaunchedAt')]))
 
-    has_healthd_V2_support = False
+    requests_table = screen.tables[-1]
+    if not is_windows_platform:
+        requests_table.columns += [
+            Column('load 1', 7, 'load1', 'right'),
+            Column('load 5', 7, 'load5', 'right')
+        ]
 
-    try:
-        platform_arn = env['PlatformArn']
-        has_healthd_V2_support = PlatformVersion(platform_arn).has_healthd_group_version_2_support()
-    except KeyError:
-        has_healthd_V2_support = SolutionStack(env['SolutionStackName']).has_healthd_group_version_2_support
+    cpu_table = screen.tables[-1]
+    if is_windows_platform:
+        cpu_table.columns += [
+            Column('% user time', 12, 'User', 'right'),
+            Column('% privileged time', 20, 'System', 'right'),
+            Column('% idle time', 12, 'Idle', 'right'),
+        ]
+    else:
+        cpu_table.columns += [
+            Column('user %', 11, 'User', 'right'),
+            Column('nice %', 7, 'Nice', 'right'),
+            Column('system %', 9, 'System', 'right'),
+            Column('idle %', 7, 'Idle', 'right'),
+            Column('iowait %', 10, 'IOWait', 'right'),
+        ]
 
-    if has_healthd_V2_support:
+    if platform.has_healthd_group_version_2_support:
         screen.add_table(Table('deployments', columns=[
             Column('instance-id', None, 'InstanceId', 'left'),
             Column('status', None, 'DeploymentStatus', 'left'),
@@ -112,6 +132,8 @@ def create_health_tables(screen, env):
             Column('ago', None, 'TimeSinceDeployment', 'left'),
         ]))
     screen.add_help_table(HelpTable())
+
+    LOG.debug('Added {} tables to `eb health` screen'.format(len(screen.tables)))
 
 
 def create_traditional_health_tables(screen):

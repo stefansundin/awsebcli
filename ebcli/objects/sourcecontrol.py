@@ -16,6 +16,7 @@ import datetime
 import fileinput
 import os
 import re
+import subprocess
 
 from cement.utils.misc import minimal_logger
 from cement.utils.shell import exec_cmd
@@ -148,12 +149,15 @@ class Git(SourceControl):
         return version_label.replace('.', '_')
 
     def untracked_changes_exist(self):
-        stdout, stderr, exitcode = self._run_cmd(['git', 'diff', '--numstat'])
-        LOG.debug('git diff --numstat result: ' + stdout +
-                  ' with errors: ' + stderr)
-        if stdout:
-            return True
-        return False
+        try:
+            result = subprocess.check_output(['git', 'diff', '--numstat'])
+
+            if isinstance(result, bytes):
+                result = result.decode()
+
+            LOG.debug('Result of `git diff --numstat`: ' + result)
+        except subprocess.CalledProcessError as e:
+            LOG.debug('`git diff --numstat` resulted in an error: ' + str(e))
 
     def get_current_repository(self):
         # it's possible 'origin' isn't the name of their remote so attempt to get their current remote
@@ -287,9 +291,9 @@ class Git(SourceControl):
                         return
 
         with open('.gitignore', 'a') as f:
-            f.write(os.linesep)
+            f.write('\n')
             for line in git_ignore:
-                f.write(line + os.linesep)
+                f.write('{}\n'.format(line))
 
     def clean_up_ignore_file(self):
         cwd = os.getcwd()
