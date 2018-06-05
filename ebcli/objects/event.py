@@ -32,3 +32,46 @@ class Event(object):
         self.request_id = request_id
         self.severity = severity
         self.version_label = version_label
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+    def __ne__(self, other):
+        return self.__hash__() != other.__hash__()
+
+    def __hash__(self):
+        """
+        __hash__ method for `OptionSetting` to enable comparison of sets of `OptionSetting`s objects.
+        :return: a hash of the `tuple` of the `OptionSetting` attributes
+        """
+        return hash(
+            (
+                self.app_name,
+                self.environment_name,
+                self.event_date,
+                self.message,
+                self.platform,
+                self.request_id,
+                self.severity,
+                self.version_label
+            )
+        )
+
+    @classmethod
+    def json_to_event_objects(cls, json):
+        events = []
+        for event in json:
+            events.append(
+                Event(
+                    app_name=event.get('ApplicationName'),
+                    environment_name=event.get('EnvironmentName'),
+                    event_date=event.get('EventDate'),
+                    message=event.get('Message'),
+                    platform=event.get('PlatformArn'),
+                    request_id=event.get('RequestId'),
+                    severity=event.get('Severity'),
+                    version_label=event.get('VersionLabel')
+                )
+            )
+
+        return events

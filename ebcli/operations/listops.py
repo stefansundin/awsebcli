@@ -11,7 +11,7 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-from ..lib import aws, utils
+from ..lib import aws, utils, elasticbeanstalk
 from ..core import io
 from . import commonops
 
@@ -23,7 +23,7 @@ def list_env_names(app_name, verbose, all_apps):
         io.echo('Region:', region)
 
     if all_apps:
-        for app_name in commonops.get_application_names():
+        for app_name in elasticbeanstalk.get_application_names():
             list_env_names_for_app(app_name, verbose)
     else:
         list_env_names_for_app(app_name, verbose)
@@ -31,14 +31,14 @@ def list_env_names(app_name, verbose, all_apps):
 
 def list_env_names_for_app(app_name, verbose):
     current_env = commonops.get_current_branch_environment()
-    env_names = commonops.get_env_names(app_name)
+    env_names = elasticbeanstalk.get_environment_names(app_name)
     env_names.sort()
 
     if verbose:
         io.echo('Application:', app_name)
         io.echo('    Environments:', len(env_names))
         for e in env_names:
-            instances = commonops.get_instance_ids(app_name, e)
+            instances = commonops.get_instance_ids(e)
             if e == current_env:
                 e = '* ' + e
 

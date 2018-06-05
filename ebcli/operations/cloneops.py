@@ -37,7 +37,12 @@ def make_cloned_env(clone_request, nohang=False, timeout=None):
     result, request_id = clone_env(clone_request)
 
     # Print status of env
-    commonops.print_env_details(result, health=False)
+    result.print_env_details(
+        io.echo,
+        elasticbeanstalk.get_environments,
+        elasticbeanstalk.get_environment_resources,
+        health=False
+    )
 
     if nohang:
         return
@@ -58,7 +63,7 @@ def clone_env(clone_request):
                 clone_request.cname = io.prompt_for_cname()
             elif re.match(responses['env.nameexists'], e.message):
                 io.echo(strings['env.exists'])
-                current_environments = commonops.get_env_names(
+                current_environments = elasticbeanstalk.get_environment_names(
                     clone_request.app_name)
                 unique_name = utils.get_unique_name(clone_request.env_name,
                                                     current_environments)

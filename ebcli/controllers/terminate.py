@@ -14,8 +14,9 @@
 from ..core.abstractcontroller import AbstractBaseController
 from ..resources.strings import strings, prompts, flag_text
 from ..core import io
+from ..lib import elasticbeanstalk
 from ..objects.exceptions import NotFoundError, NoEnvironmentForBranchError
-from ..operations import commonops, terminateops
+from ..operations import terminateops
 
 
 class TerminateController(AbstractBaseController):
@@ -58,7 +59,7 @@ class TerminateController(AbstractBaseController):
 
             if not force:
                 # make sure env exists
-                env_names = commonops.get_env_names(app_name)
+                env_names = elasticbeanstalk.get_environment_names(app_name)
                 if env_name not in env_names:
                     raise NotFoundError('Environment ' +
                                         env_name + ' not found')

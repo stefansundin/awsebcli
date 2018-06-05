@@ -65,7 +65,7 @@ class CloneController(AbstractBaseController):
             raise InvalidOptionsError(strings['worker.cname'])
 
         if cname:
-            if not commonops.is_cname_available(cname):
+            if not elasticbeanstalk.is_cname_available(cname):
                 raise AlreadyExistsError(strings['cname.unavailable'].
                                          replace('{cname}', cname))
 
@@ -80,7 +80,7 @@ class CloneController(AbstractBaseController):
             else:
                 unique_name = 'my-cloned-env'
 
-            env_list = commonops.get_env_names(app_name)
+            env_list = elasticbeanstalk.get_environment_names(app_name)
 
             unique_name = utils.get_unique_name(unique_name, env_list)
 
@@ -91,7 +91,7 @@ class CloneController(AbstractBaseController):
 
         if tier.name.lower() == 'webserver':
             if not cname and not provided_clone_name:
-                cname = get_cname(clone_name)
+                cname = get_cname_from_customer(clone_name)
             elif not cname:
                 cname = None
 

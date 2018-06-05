@@ -84,8 +84,9 @@ def wait_for_success_events(request_id, timeout_in_minutes=None,
 
                     if stream_events:
                         streamer.stream_event(get_event_string(event), safe_to_quit=safe_to_quit)
-                    # Test event message for success string
-                    if _is_success_string(event.message):
+
+                    _raise_if_error_event(event.message)
+                    if _is_success_event(event.message):
                         return
                     last_time = event.event_date
                 else:
@@ -119,8 +120,8 @@ def wait_for_success_events(request_id, timeout_in_minutes=None,
                     # This can solve timing issues
                     last_time = event.event_date
 
-                # Test event message for success string
-                if _is_success_string(event.message):
+                _raise_if_error_event(event.message)
+                if _is_success_event(event.message):
                     return
     finally:
         streamer.end_stream()
@@ -220,7 +221,7 @@ def wait_for_compose_events(request_id, app_name, grouped_envs, timeout_in_minut
                         streamer.stream_event(get_env_event_string(event))
                         last_times[index] = event.event_date
 
-                    if _is_success_string(event.message):
+                    if _is_success_event(event.message):
                         successes[index] = True
     finally:
         streamer.end_stream()
@@ -228,7 +229,50 @@ def wait_for_compose_events(request_id, app_name, grouped_envs, timeout_in_minut
     io.log_error(strings['timeout.error'])
 
 
-def _is_success_string(message):
+def _raise_if_error_event(message):
+    if message == responses['event.redmessage']:
+        raise ServiceError(message)
+    if message == responses['event.failedlaunch']:
+        raise ServiceError(message)
+    if message == responses['event.faileddeploy']:
+        raise ServiceError(message)
+    if message == responses['event.failedupdate']:
+        raise ServiceError(message)
+    if message == responses['event.updatefailed']:
+        raise ServiceError(message)
+    if message.startswith(responses['event.launchbad']):
+        raise ServiceError(message)
+    if message.startswith(responses['event.updatebad']):
+        raise ServiceError(message)
+    if message.startswith(responses['logs.fail']):
+        raise ServiceError(message)
+    if message.startswith(responses['create.ecsdockerrun1']):
+        raise NotSupportedError(prompts['create.dockerrunupgrade'])
+    if message.startswith(responses['appversion.finished']) and message.endswith('FAILED.'):
+        raise ServiceError(message)
+
+
+def _is_success_event(message):
+    if message == responses['logs.pulled']:
+        return True
+    if message == responses['env.terminated']:
+        return True
+    if message == responses['env.updatesuccess']:
+        return True
+    if message == responses['env.configsuccess']:
+        return True
+    if message == responses['app.deletesuccess']:
+        return True
+    if message == responses['event.greenmessage']:
+        return True
+    if responses['logs.successtail'] in message:
+        return True
+    if responses['logs.successbundle'] in message:
+        return True
+    if responses['tags.tag_update_successful'] in message:
+        return True
+    if responses['tags.no_tags_to_update'] in message:
+        return True
     if message.startswith(responses['event.completewitherrors']):
         return True
     if message.startswith(responses['event.launched_environment']):
@@ -243,53 +287,12 @@ def _is_success_string(message):
         return True
     if message.startswith(responses['event.platformcreatesuccess']):
         return True
-    if message == responses['event.greenmessage']:
-        return True
     if message.startswith(responses['event.launchsuccess']):
-        return True
-    if message == responses['event.redmessage']:
-        raise ServiceError(message)
-    if message.startswith(responses['event.launchbad']):
-        raise ServiceError(message)
-    if message.startswith(responses['event.updatebad']):
-        raise ServiceError(message)
-    if message == responses['event.failedlaunch']:
-        raise ServiceError(message)
-    if message == responses['event.faileddeploy']:
-        raise ServiceError(message)
-    if message == responses['event.failedupdate']:
-        raise ServiceError(message)
-    if message == responses['logs.pulled']:
-        return True
-    if message.startswith(responses['logs.fail']):
-        raise ServiceError(message)
-    if message == responses['env.terminated']:
-        return True
-    if message == responses['env.updatesuccess']:
-        return True
-    if message == responses['env.configsuccess']:
-        return True
-    if message == responses['app.deletesuccess']:
-        return True
-    if responses['logs.successtail'] in message:
-        return True
-    if responses['logs.successbundle'] in message:
         return True
     if message.startswith(responses['swap.success']):
         return True
-    if message.startswith(responses['create.ecsdockerrun1']):
-        raise NotSupportedError(prompts['create.dockerrunupgrade'])
-    if message == responses['event.updatefailed']:
-        raise ServiceError(message)
-    if message.startswith(responses['appversion.finished']) and message.endswith('FAILED.'):
-        raise ServiceError(message)
     if message.startswith(responses['appversion.finished']) and message.endswith('PROCESSED.'):
         return True
-    if responses['tags.tag_update_successful'] in message:
-        return True
-    if responses['tags.no_tags_to_update'] in message:
-        return True
-
     return False
 
 
@@ -338,31 +341,9 @@ def get_env_event_string(event, long_format=False):
         return u'{0} - {1}: {2}'.format(environment.rjust(40), severity, message)
 
 
-def get_all_env_names():
-    envs = elasticbeanstalk.get_all_environments()
-    return [e.name for e in envs]
-
-
-def get_env_names(app_name):
-    envs = elasticbeanstalk.get_app_environments(app_name)
-    return [e.name for e in envs]
-
-
-def get_app_version_labels(app_name):
-    app_versions = elasticbeanstalk.get_application_versions(app_name)['ApplicationVersions']
-    return [v['VersionLabel'] for v in app_versions]
-
-
 def get_app_version_s3_location(app_name, version_label):
-    # Check if the application version already exists. If so get the S3 key to fetch.
-    s3_key = None
-    s3_bucket = None
-    app_versions = elasticbeanstalk.get_application_versions(app_name, tuple(version_label,))['ApplicationVersions']
-    app_version = {}
-    for v in app_versions:
-        if v['VersionLabel'] == version_label:
-            app_version = v
-            break
+    s3_key, s3_bucket = None, None
+    app_version = elasticbeanstalk.application_version_exists(app_name, version_label)
 
     if app_version:
         s3_bucket = app_version['SourceBundle']['S3Bucket']
@@ -470,74 +451,6 @@ def open_webpage_in_browser(url, ssl=False):
         if pid == 0:  # Is child
             p.communicate()
         # Else exit
-
-
-def get_application_names():
-    app_list = elasticbeanstalk.get_all_applications()
-
-    return [n.name for n in app_list]
-
-
-def print_env_details(env, health=True):
-    region = aws.get_region_name()
-
-    io.echo('Environment details for:', env.name)
-    io.echo('  Application name:', env.app_name)
-    io.echo('  Region:', region)
-    io.echo('  Deployed Version:', env.version_label)
-    io.echo('  Environment ID:', env.id)
-    io.echo('  Platform:', env.platform)
-    io.echo('  Tier:', env.tier)
-    io.echo('  CNAME:', env.cname)
-    io.echo('  Updated:', env.date_updated)
-    print_env_links(env)
-
-    if health:
-        io.echo('  Status:', env.status)
-        io.echo('  Health:', env.health)
-
-
-def print_env_links(env):
-    if env.environment_links is not None and len(env.environment_links) > 0:
-        links = {}
-        linked_envs = []
-
-        # Process information returned in EnvironmentLinks
-        for link in env.environment_links:
-            link_data = dict(link_name=link['LinkName'], env_name=link['EnvironmentName'])
-            links[link_data['env_name']] = link_data
-            linked_envs.append(link_data['env_name'])
-
-        # Call DescribeEnvironments for linked environments
-        linked_env_descriptions = elasticbeanstalk.get_environments(linked_envs)
-
-        for linked_env in linked_env_descriptions:
-            if linked_env.tier.name == 'WebServer':
-                links[linked_env.name]['value'] = linked_env.cname
-            elif linked_env.tier.name == 'Worker':
-                links[linked_env.name]['value'] = get_worker_sqs_url(linked_env.name)
-                time.sleep(.5)
-
-        io.echo('  Environment Links:')
-
-        for link in links.values():
-            io.echo('    {}:'.format(link['env_name']))
-            io.echo('      {}: {}'.format(link['link_name'],
-                                          link['value']))
-
-
-def get_worker_sqs_url(env_name):
-    resources = elasticbeanstalk.get_environment_resources(env_name)['EnvironmentResources']
-    queues = resources['Queues']
-    worker_queue = None
-    for queue in queues:
-        if queue['Name'] == 'WorkerQueue':
-            worker_queue = queue
-
-    if worker_queue is None:
-        raise WorkerQueueNotFound
-
-    return worker_queue['URL']
 
 
 def create_dummy_app_version(app_name):
@@ -889,11 +802,7 @@ def get_config_setting_from_branch_or_default(key_name, default=_marker):
         return fileoperations.get_config_setting('global', key_name, default=default)
 
 
-def is_cname_available(cname):
-    return elasticbeanstalk.is_cname_available(cname)
-
-
-def get_instance_ids(app_name, env_name):
+def get_instance_ids(env_name):
     env = elasticbeanstalk.get_environment_resources(env_name)
     instances = [i['Id'] for i in env['EnvironmentResources']['Instances']]
     return instances
