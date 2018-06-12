@@ -202,6 +202,7 @@ strings = {
     'ssh.noip': 'This instance does not have a Public IP address. This is possibly because the instance is terminating.',
     # Error thrown when someone provides a cname with a worker tier
     'worker.cname': 'Worker tiers do not support a CNAME.',
+    'worker.elb_type': 'Worker tiers do not support an ELB type.',
     # Error thrown when available cname is not available
     'cname.unavailable': 'The CNAME prefix {cname} is already in use.',
     'ssh.openingport': 'INFO: Attempting to open port 22.',
@@ -397,17 +398,17 @@ prompts = {
     'cleanupplatform.validate': 'To confirm, type the platform name',
     'cleanupplatform.validate-all': 'To confirm, type "all"',
 
-    'terminate.confirm': 'The environment "{env-name}" and all associated instances will be terminated.',
+    'terminate.confirm': 'The environment "{env_name}" and all associated instances will be terminated.',
     'terminate.validate': 'To confirm, type the environment name',
     'upgrade.validate': 'To continue, type the environment name',
     'platformdelete.confirm': 'The platform "{platform-arn}" and all associated resources will be deleted.',
     'platformdelete.validate': 'To confirm, type the platform arn',
 
-    'delete.confirm': 'The application "{app-name}" and all its resources will be deleted.\n'
+    'delete.confirm': 'The application "{app_name}" and all its resources will be deleted.\n'
                       'This application currently has the following:\n'
-                      'Running environments: {env-num}\n'
-                      'Configuration templates: {config-num}\n'
-                      'Application versions: {version-num}\n',
+                      'Running environments: {env_num}\n'
+                      'Configuration templates: {config_num}\n'
+                      'Application versions: {version_num}\n',
     'delete.validate': 'To confirm, type the application name',
     'fileopen.error1': 'EB CLI cannot open the file using the editor {editor}.',
     'update.invalidstate': 'The environment update cannot be complete at this time. Try again later.',
