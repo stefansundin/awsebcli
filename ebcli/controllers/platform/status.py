@@ -1,4 +1,4 @@
-# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -21,6 +21,7 @@ from ebcli.resources.strings import strings, flag_text
 
 class PlatformShowController(AbstractBaseController):
     class Meta:
+        requires_directory_initialization = True
         label = 'platform show'
         aliases = ['show']
         aliases_only = True
@@ -77,6 +78,8 @@ class PlatformShowController(AbstractBaseController):
 
 class GenericPlatformStatusController(AbstractBaseController):
     class Meta:
+        is_platform_workspace_only_command = True
+        requires_directory_initialization = True
         description = strings['platformshowversion.info']
         arguments = [
             (['version'], dict(action='store', nargs='?', default=None, help=flag_text['platformshowversion.version'])),

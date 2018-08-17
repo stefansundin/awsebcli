@@ -1,4 +1,4 @@
-# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -24,6 +24,8 @@ from ...operations import commonops
 
 class GenericPlatformCreateController(AbstractBaseController):
     class Meta:
+        is_platform_workspace_only_command = True
+        requires_directory_initialization = True
         description = strings['platformcreateversion.info']
         arguments = [
             (['version'], dict(action='store', nargs='?', default=None, help=flag_text['platformcreateversion.version'])),

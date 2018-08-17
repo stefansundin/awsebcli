@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -45,7 +45,9 @@ class EbBaseController(controller.CementBaseController):
 
     @property
     def _help_text(self):
-        """Returns the help text displayed when '--help' is passed."""
+        """
+        Prints the output of `eb --help`
+        """
         longest = 0
         def pad(label):
             padlength = longest - len(label) + 2
@@ -64,6 +66,9 @@ class EbBaseController(controller.CementBaseController):
             if len(label) > longest:
                 longest = len(label)
 
+        command_help_overrides = {
+            'platform': 'Commands for managing platforms.'
+        }
         for label in self._visible_commands:
             cmd = self._dispatch_map[label]
             cmd_txt = '  '
@@ -80,7 +85,7 @@ class EbBaseController(controller.CementBaseController):
                 cmd_txt += label
 
             if cmd['help']:
-                cmd_txt += pad(cmd_txt) + "%s\n" % cmd['help']
+                cmd_txt += pad(cmd_txt) + "%s\n" % (command_help_overrides.get(label) or cmd['help'])
             else:
                 cmd_txt += "\n"
 

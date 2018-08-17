@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -21,8 +21,13 @@ from ebcli import __version__
 from ebcli.core.ebglobals import Constants
 from ebcli.lib import elasticbeanstalk, utils
 from ebcli.core import io, fileoperations
-from ebcli.objects.exceptions import NoEnvironmentForBranchError, PlatformWorkspaceNotSupportedError, \
-    ApplicationWorkspaceNotSupportedError, EBCLIException
+from ebcli.objects.exceptions import (
+    NoEnvironmentForBranchError,
+    PlatformWorkspaceNotSupportedError,
+    ApplicationWorkspaceNotSupportedError,
+    EBCLIException,
+    NotInitializedError
+)
 from ebcli.resources.strings import strings, flag_text
 from ebcli.objects import region
 from ebcli.operations import commonops
@@ -50,6 +55,25 @@ class AbstractBaseController(controller.CementBaseController):
     def do_command(self):
         pass
 
+    @classmethod
+    def validate_workspace(cls):
+        workspace_type = fileoperations.get_workspace_type(None)
+
+        if '--modules' in sys.argv:
+            pass
+        elif '--help' in sys.argv:
+            pass
+        else:
+            is_platform_workspace_only_command = cls.Meta.__dict__.get('is_platform_workspace_only_command')
+            if is_platform_workspace_only_command is True and Constants.WorkSpaceTypes.APPLICATION == workspace_type:
+                raise ApplicationWorkspaceNotSupportedError(strings['exit.applicationworkspacenotsupported'])
+
+            requires_directory_initialization = cls.Meta.__dict__.get('requires_directory_initialization')
+            if requires_directory_initialization is None:
+                requires_directory_initialization = False
+            if requires_directory_initialization and not workspace_type:
+                raise NotInitializedError(strings['exit.notsetup'])
+
     @controller.expose(hide=True)
     def default(self):
         """
@@ -57,6 +81,7 @@ class AbstractBaseController(controller.CementBaseController):
         from here.  It can also be overridden in the sub-class
 
         """
+        self.validate_workspace()
         self.do_command()
         self.check_for_cli_update(__version__)
 
@@ -128,7 +153,10 @@ class AbstractBaseController(controller.CementBaseController):
 
     @property
     def _help_text(self):
-        """Returns the help text displayed when '--help' is passed."""
+        """
+        Returns the help text displayed when for the commands of the type `eb <command> <subcommand>`
+        except where <command> is "platform".
+        """
         longest = 0
         def pad(label):
             padlength = longest - len(label) + 2

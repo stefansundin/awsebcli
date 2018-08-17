@@ -1,4 +1,4 @@
-# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -148,100 +148,22 @@ def create_platform_version(
         staged=False,
         timeout=None):
 
+    _raise_if_directory_is_empty()
+    _raise_if_platform_definition_file_is_missing()
+    version and _raise_if_version_format_is_invalid(version)
     platform_name = fileoperations.get_platform_name()
     instance_profile = fileoperations.get_instance_profile(None)
     key_name = commonops.get_default_keyname()
-
-    if version is None:
-        version = _get_latest_version(platform_name=platform_name, owner=Constants.OWNED_BY_SELF, ignored_states=[])
-
-        if version is None:
-            version = '1.0.0'
-        else:
-            major, minor, patch = version.split('.', 3)
-
-            if major_increment:
-                major = str(int(major) + 1)
-                minor = '0'
-                patch = '0'
-            if minor_increment:
-                minor = str(int(minor) + 1)
-                patch = '0'
-            if patch_increment or not(major_increment or minor_increment):
-                patch = str(int(patch) + 1)
-
-            version = "%s.%s.%s" % (major, minor, patch)
-
-    if not VALID_PLATFORM_VERSION_FORMAT.match(version):
-        raise InvalidPlatformVersionError(strings['exit.invalidversion'])
-
-    cwd = os.getcwd()
-    fileoperations._traverse_to_project_root()
-
-    try:
-        if heuristics.directory_is_empty():
-            raise PlatformWorkspaceEmptyError(strings['exit.platformworkspaceempty'])
-    finally:
-        os.chdir(cwd)
-
-    if not heuristics.has_platform_definition_file():
-        raise PlatformWorkspaceEmptyError(strings['exit.no_pdf_file'])
-
+    version = version or _resolve_version_number(platform_name, major_increment, minor_increment, patch_increment)
     source_control = SourceControl.get_source_control()
-    if source_control.untracked_changes_exist():
-        io.log_warning(strings['sc.unstagedchanges'])
-
-    version_label = source_control.get_version_label()
-    if staged:
-        # Make a unique version label
-        timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-        version_label = version_label + '-stage-' + timestamp
-
-    file_descriptor, original_platform_yaml = tempfile.mkstemp()
-    os.close(file_descriptor)
-
-    copyfile('platform.yaml', original_platform_yaml)
-
-    try:
-        # Add option settings to platform.yaml
-        _enable_healthd()
-
-        s3_bucket, s3_key = get_app_version_s3_location(platform_name, version_label)
-
-        # Create zip file if the application version doesn't exist
-        if s3_bucket is None and s3_key is None:
-            file_name, file_path = _zip_up_project(version_label, source_control, staged=staged)
-        else:
-            file_name = None
-            file_path = None
-    finally:
-        # Restore original platform.yaml
-        move(original_platform_yaml, 'platform.yaml')
-
-    # Use existing bucket if it exists
-    bucket = elasticbeanstalk.get_storage_location() if s3_bucket is None else s3_bucket
-
-    # Use existing key if it exists
-    key = platform_name + '/' + file_name if s3_key is None else s3_key
-
-    try:
-        s3.get_object_info(bucket, key)
-        io.log_info('S3 Object already exists. Skipping upload.')
-    except NotFoundError:
-        io.log_info('Uploading archive to s3 location: ' + key)
-        s3.upload_platform_version(bucket, key, file_path)
-
-    # Just deletes the local zip
-    fileoperations.delete_app_versions()
+    io.log_warning(strings['sc.unstagedchanges']) if source_control.untracked_changes_exist() else None
+    version_label = _resolve_version_label(source_control, staged)
+    bucket, key, file_path = _resolve_s3_bucket_and_key(platform_name, version_label, source_control, staged)
+    _upload_platform_version_to_s3_if_necessary(bucket, key, file_path)
     io.log_info('Creating Platform Version ' + version_label)
     response = elasticbeanstalk.create_platform_version(
         platform_name, version, bucket, key, instance_profile, key_name, instance_type, vpc)
 
-
-    # TODO: Enable this once the API returns the name of the environment associated with a
-    # CreatePlatformRequest, and remove hard coded value. There is currently only one type
-    # of platform builder, we may support additional builders in the future.
-    #environment_name = response['PlatformSummary']['EnvironmentName']
     environment_name = 'eb-custom-platform-builder-packer'
 
     io.echo(colored(
@@ -250,28 +172,7 @@ def create_platform_version(
     fileoperations.update_platform_version(version)
     commonops.set_environment_for_current_branch(environment_name)
 
-    arn = response['PlatformSummary']['PlatformArn']
-    request_id = response['ResponseMetadata']['RequestId']
-
-    if not timeout:
-        timeout = 30
-
-    # Share streamer for platform events and builder events
-    streamer = io.get_event_streamer()
-
-    builder_events = threading.Thread(
-        target=logsops.stream_platform_logs,
-        args=(platform_name, version, streamer, 5, None, PackerStreamFormatter()))
-    builder_events.daemon = True
-
-    # Watch events from builder logs
-    builder_events.start()
-    commonops.wait_for_success_events(
-        request_id,
-        platform_arn=arn,
-        streamer=streamer,
-        timeout_in_minutes=timeout
-    )
+    stream_platform_logs(response, platform_name, version, timeout)
 
 
 def delete_platform_version(platform_version, force=False):
@@ -642,6 +543,48 @@ def show_platform_events(follow, version):
     print_events(follow=follow, platform_arn=arn, app_name=None, env_name=None)
 
 
+def stream_platform_logs(response, platform_name, version, timeout):
+    arn = response['PlatformSummary']['PlatformArn']
+    request_id = response['ResponseMetadata']['RequestId']
+
+    # Share streamer for platform events and builder events
+    streamer = io.get_event_streamer()
+
+    builder_events = threading.Thread(
+        target=logsops.stream_platform_logs,
+        args=(platform_name, version, streamer, 5, None, PackerStreamFormatter()))
+    builder_events.daemon = True
+
+    # Watch events from builder logs
+    builder_events.start()
+    commonops.wait_for_success_events(
+        request_id,
+        platform_arn=arn,
+        streamer=streamer,
+        timeout_in_minutes=timeout or 30
+    )
+
+
+def _create_app_version_zip_if_not_present_on_s3(
+        platform_name,
+        version_label,
+        source_control,
+        staged
+):
+    s3_bucket, s3_key = get_app_version_s3_location(platform_name, version_label)
+    file_name, file_path = None, None
+    if s3_bucket is None and s3_key is None:
+        file_name, file_path = _zip_up_project(version_label, source_control, staged=staged)
+        s3_bucket = elasticbeanstalk.get_storage_location()
+        s3_key = platform_name + '/' + file_name
+
+    return s3_bucket, s3_key, file_path
+
+
+def _datetime_now():
+    return datetime.now()
+
+
 def _enable_healthd():
     option_settings = []
 
@@ -689,6 +632,15 @@ def _enable_healthd():
         stream.write(yaml.dump(platform_yaml, default_flow_style=False))
 
 
+def _generate_platform_yaml_copy():
+    file_descriptor, original_platform_yaml = tempfile.mkstemp()
+    os.close(file_descriptor)
+
+    copyfile('platform.yaml', original_platform_yaml)
+
+    return original_platform_yaml
+
+
 def _get_latest_version(platform_name=None, owner=None, ignored_states=None):
     if ignored_states is None:
         ignored_states=['Deleting', 'Failed']
@@ -727,6 +679,96 @@ def _name_to_arn(platform_name):
         raise InvalidPlatformVersionError(strings['exit.nosuchplatform'])
 
     return arn
+
+
+def _raise_if_directory_is_empty():
+    cwd = os.getcwd()
+    fileoperations._traverse_to_project_root()
+    try:
+        if heuristics.directory_is_empty():
+            raise PlatformWorkspaceEmptyError(strings['exit.platformworkspaceempty'])
+    finally:
+        os.chdir(cwd)
+
+
+def _raise_if_platform_definition_file_is_missing():
+    if not heuristics.has_platform_definition_file():
+        raise PlatformWorkspaceEmptyError(strings['exit.no_pdf_file'])
+
+
+def _raise_if_version_format_is_invalid(version):
+    if not VALID_PLATFORM_VERSION_FORMAT.match(version):
+        raise InvalidPlatformVersionError(strings['exit.invalidversion'])
+
+
+def _resolve_version_label(source_control, staged):
+    version_label = source_control.get_version_label()
+    if staged:
+        # Make a unique version label
+        timestamp = _datetime_now().strftime("%y%m%d_%H%M%S")
+        version_label = version_label + '-stage-' + timestamp
+    return version_label
+
+
+def _resolve_version_number(
+        platform_name,
+        major_increment,
+        minor_increment,
+        patch_increment
+):
+    version = _get_latest_version(platform_name=platform_name, owner=Constants.OWNED_BY_SELF, ignored_states=[])
+
+    if version is None:
+        version = '1.0.0'
+    else:
+        major, minor, patch = version.split('.', 3)
+
+        if major_increment:
+            major = str(int(major) + 1)
+            minor = '0'
+            patch = '0'
+        if minor_increment:
+            minor = str(int(minor) + 1)
+            patch = '0'
+        if patch_increment or not(major_increment or minor_increment):
+            patch = str(int(patch) + 1)
+
+        version = "%s.%s.%s" % (major, minor, patch)
+
+    return version
+
+
+def _resolve_s3_bucket_and_key(
+        platform_name,
+        version_label,
+        source_control,
+        staged
+):
+    platform_yaml_copy = _generate_platform_yaml_copy()
+
+    try:
+        _enable_healthd()
+        s3_bucket, s3_key, file_path = _create_app_version_zip_if_not_present_on_s3(
+            platform_name,
+            version_label,
+            source_control,
+            staged
+        )
+    finally:
+        # Restore original platform.yaml
+        move(platform_yaml_copy, 'platform.yaml')
+
+    return s3_bucket, s3_key, file_path
+
+
+def _upload_platform_version_to_s3_if_necessary(bucket, key, file_path):
+    try:
+        s3.get_object_info(bucket, key)
+        io.log_info('S3 Object already exists. Skipping upload.')
+    except NotFoundError:
+        io.log_info('Uploading archive to s3 location: ' + key)
+        s3.upload_platform_version(bucket, key, file_path)
+    fileoperations.delete_app_versions()
 
 
 def _version_to_arn(platform_version):

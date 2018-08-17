@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -84,8 +84,11 @@ def make_new_env(
         if build_config is not None:
             buildspecops.stream_build_configuration_app_version_creation(env_request.app_name, env_request.version_label, build_config)
         elif process_app_version is True:
-            success = commonops.wait_for_processed_app_versions(env_request.app_name,
-                                                                [env_request.version_label])
+            success = commonops.wait_for_processed_app_versions(
+                env_request.app_name,
+                [env_request.version_label],
+                timeout=timeout or 5
+            )
             if not success:
                 return
 

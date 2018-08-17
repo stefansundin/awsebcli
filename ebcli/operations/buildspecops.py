@@ -26,7 +26,7 @@ LOG = minimal_logger(__name__)
 
 def stream_build_configuration_app_version_creation(app_name, app_version_label, build_spec):
     # Get the CloudWatch logs link
-    successfully_generated = wait_for_app_version_attribute(app_name, [app_version_label], 'BuildArn', timeout=1)
+    successfully_generated = wait_for_app_version_attribute(app_name, [app_version_label], timeout=1)
     app_version_response = elasticbeanstalk.get_application_versions(app_name, version_labels=[app_version_label])['ApplicationVersions']
 
     build_response = codebuild.batch_get_builds([app_version_response[0]['BuildArn']]) \
@@ -91,39 +91,40 @@ def validate_build_config(build_config):
         raise ValidationError("No image specified in buildspec; this is a required argument.")
 
 
-def wait_for_app_version_attribute(app_name, version_labels, attribute, timeout=5):
-    versions_to_check = list(version_labels)
-    found = {}
-    failed = {}
+def wait_for_app_version_attribute(app_name, version_labels, timeout=5):
     io.echo('--- Waiting for Application Versions to populate attributes ---')
-    for version in version_labels:
-        found[version] = False
-        failed[version] = False
+    versions_to_check = list(version_labels)
+    found = dict.fromkeys(version_labels)
+    failed = dict.fromkeys(version_labels)
     start_time = datetime.utcnow()
-    while not all([(found[version] or failed[version]) for version in versions_to_check]):
-        if datetime.utcnow() - start_time >= timedelta(minutes=timeout):
-            io.log_error(strings['appversion.attribute.failed'].replace('{app_version}', version_labels))
+    timediff = timedelta(minutes=timeout)
+    while versions_to_check:
+        if _timeout_reached(start_time, timediff):
+            io.log_error(strings['appversion.attribute.failed'].replace('{app_version}', ', '.join(version_labels)))
             return False
         io.LOG.debug('Retrieving app versions.')
         app_versions = elasticbeanstalk.get_application_versions(app_name, versions_to_check)['ApplicationVersions']
         for version in app_versions:
-            if attribute in version:
-                if version[attribute] is not None:
-                    found[version['VersionLabel']] = True
-                    io.echo(strings['appversion.attribute.success'].replace('{app_version}', version['VersionLabel']))
-                    versions_to_check.remove(version['VersionLabel'])
-            elif 'Status' in version and (version['Status'] == 'FAILED' or version['Status'] == 'FAILED'):
+            if version.get('BuildArn'):
+                found[version['VersionLabel']] = True
+                io.echo(strings['appversion.attribute.success'].format(app_version=version['VersionLabel']))
+                versions_to_check.remove(version['VersionLabel'])
+            elif version.get('Status') == 'FAILED':
                 failed[version['VersionLabel']] = True
-                io.log_error(strings['appversion.attribute.failed'].replace('{app_version}',
-                                                                         version['VersionLabel']))
+                io.log_error(strings['appversion.attribute.failed'].format(app_version=version['VersionLabel']))
                 versions_to_check.remove(version['VersionLabel'])
 
         if all(found.values()):
             return True
 
-        time.sleep(4)
+        _sleep()
 
-    if any(failed.values()):
-        return False
+    return not any(failed.values())
 
-    return True
+
+def _sleep():
+    time.sleep(4)
+
+
+def _timeout_reached(start_time, timediff):
+    return datetime.utcnow() - start_time >= timediff

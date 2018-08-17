@@ -1,4 +1,4 @@
-# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -195,4 +195,12 @@ class WorkerQueueNotFound(EBCLIException):
 
 
 class DockerVersionError(Exception):
+    pass
+
+
+class EndOfTestError(EOFError):
+    """
+    Class defines exception to raise in tests to allow exiting from the infinite `while` loop.
+    Must not be raised in source code.
+    """
     pass

@@ -1,4 +1,4 @@
-# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -13,7 +13,7 @@
 from collections import defaultdict
 import time
 from datetime import datetime, timedelta
-from dateutil import tz
+from dateutil import tz, parser
 import locale
 import threading
 import traceback
@@ -58,15 +58,6 @@ class DataPoller(object):
         data_poller_thread.start()
 
     @staticmethod
-    def _account_for_clock_drift(datetime_str):
-        time = datetime.strptime(datetime_str, '%a, %d %b %Y %H:%M:%S %Z')
-        delta = utils.get_delta_from_now_and_datetime(time)
-        LOG.debug(u'Clock offset={0}'.format(delta))
-        LOG.debug(delta)
-
-        return delta
-
-    @staticmethod
     def _get_sleep_time(refresh_time):
         if not refresh_time:
             return 2
@@ -89,9 +80,6 @@ class DataPoller(object):
         instance_health = elasticbeanstalk.get_instance_health(self.env_name)
         LOG.debug('EnvironmentHealth-data:{}'.format(environment_health))
         LOG.debug('InstanceHealth-data:{}'.format(instance_health))
-
-        if environment_health.get('RefreshedAt'):
-            environment_health['RefreshedAt'] += self._account_for_clock_drift(environment_health['ResponseMetadata']['date'])
 
         token = instance_health.get('NextToken', None)
 
@@ -252,6 +240,8 @@ def format_time_since(timestamp):
     if not timestamp:
         return '-'
 
+    if isinstance(timestamp, str):
+        timestamp = parser.parse(timestamp)
     delta = _datetime_utcnow_wrapper() - timestamp
 
     days = delta.days

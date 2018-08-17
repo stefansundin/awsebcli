@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -16,7 +16,7 @@ import os
 import time
 from ..core import io
 from ..lib import elasticbeanstalk
-from ..resources.strings import prompts
+from ..objects.exceptions import EndOfTestError
 from . import commonops
 
 
@@ -47,6 +47,12 @@ def follow_events(app_name, env_name, platform_arn=None):
                 streamer.stream_event(message)
                 last_time = event.event_date
 
-            time.sleep(4)
+            _sleep()
+    except EndOfTestError:
+        pass
     finally:
         streamer.end_stream()
+
+
+def _sleep():
+    time.sleep(4)

@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -23,7 +23,7 @@ from . import commonops
 def compose(app_name, version_labels, grouped_env_names, group_name=None,
             nohang=False, timeout=None):
 
-    success = commonops.wait_for_processed_app_versions(app_name, version_labels)
+    success = commonops.wait_for_processed_app_versions(app_name, version_labels, timeout=timeout or 10)
     if not success:
         return
 

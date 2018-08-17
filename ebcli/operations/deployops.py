@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -52,8 +52,11 @@ def deploy(app_name, env_name, version, label, message, group_name=None,
     if build_config is not None:
         buildspecops.stream_build_configuration_app_version_creation(app_name, app_version_label, build_config)
     elif process_app_versions is True:
-        success = commonops.wait_for_processed_app_versions(app_name,
-                                                            [app_version_label])
+        success = commonops.wait_for_processed_app_versions(
+            app_name,
+            [app_version_label],
+            timeout=timeout or 5
+        )
         if not success:
             return
 
@@ -65,22 +68,3 @@ def deploy(app_name, env_name, version, label, message, group_name=None,
                                       timeout_in_minutes=timeout,
                                       can_abort=True,
                                       env_name=env_name)
-
-
-def deploy_no_events(app_name, env_name, version, label, message, process=False, staged=False):
-    region_name = aws.get_region_name()
-
-    io.log_info('Deploying code to ' + env_name + ' in region ' + region_name)
-
-    if version:
-        app_version_label = version
-    else:
-        # Create app version
-        app_version_label = commonops.create_app_version(
-            app_name, process=process, label=label, message=message, staged=staged)
-
-    # swap env to new app version
-    request_id = elasticbeanstalk.update_env_application_version(
-        env_name, app_version_label)
-
-    return request_id

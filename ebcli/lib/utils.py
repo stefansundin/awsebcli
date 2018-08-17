@@ -1,4 +1,4 @@
-# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -17,7 +17,7 @@ import pkg_resources
 import sys
 from datetime import datetime
 
-from dateutil import tz
+from dateutil import tz, parser
 
 from botocore.compat import six
 from cement.utils.misc import minimal_logger
@@ -132,6 +132,9 @@ def get_delta_from_now_and_datetime(date):
 
 
 def get_local_time(utctime):
+    if isinstance(utctime, str):
+        utctime = parser.parse(utctime)
+
     from_zone = tz.tzutc()
     to_zone = tz.tzlocal()
     utctime = utctime.replace(tzinfo=from_zone)

@@ -1,6 +1,5 @@
 CHANGES.rst
 LICENSE.txt
-MANIFEST.in
 README.rst
 dev_requirements.txt
 setup.py
@@ -76,7 +75,6 @@ ebcli/controllers/platform/status.py
 ebcli/controllers/platform/use.py
 ebcli/core/__init__.py
 ebcli/core/abstractcontroller.py
-ebcli/core/arghandler.py
 ebcli/core/base.py
 ebcli/core/completer.py
 ebcli/core/ebcore.py
