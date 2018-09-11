@@ -11,12 +11,12 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 from ebcli.core.ebglobals import Constants
-from ..core.abstractcontroller import AbstractBaseController
-from ..resources.strings import strings, prompts, flag_text
-from ..core import fileoperations, io
-from ..lib import elasticbeanstalk
-from ..objects.exceptions import NoKeypairError, InvalidOptionsError
-from ..operations import commonops, sshops
+from ebcli.core.abstractcontroller import AbstractBaseController
+from ebcli.resources.strings import strings, prompts, flag_text
+from ebcli.core import fileoperations, io
+from ebcli.lib import elasticbeanstalk
+from ebcli.objects.exceptions import NoKeypairError, InvalidOptionsError
+from ebcli.operations import commonops, sshops
 
 
 class SSHController(AbstractBaseController):
@@ -34,7 +34,8 @@ class SSHController(AbstractBaseController):
             (['--force'], dict(
                 action='store_true', help=flag_text['ssh.force'])),
             (['--setup'], dict(
-                action='store_true', help=flag_text['ssh.setup']))
+                action='store_true', help=flag_text['ssh.setup'])),
+            (['--timeout'], dict(type=int, help=flag_text['ssh.timeout'])),
         ]
 
     def do_command(self):
@@ -46,6 +47,10 @@ class SSHController(AbstractBaseController):
         keep_open = self.app.pargs.keep_open
         force = self.app.pargs.force
         setup = self.app.pargs.setup
+        timeout = self.app.pargs.timeout
+
+        if timeout and not setup:
+            raise InvalidOptionsError(strings['ssh.timeout_without_setup'])
 
         sshops.prepare_for_ssh(
                 env_name=env_name,
@@ -55,7 +60,9 @@ class SSHController(AbstractBaseController):
                 setup=setup,
                 number=number,
                 custom_ssh=custom_ssh,
-                command=cmd)
+                command=cmd,
+                timeout=timeout
+        )
 
     def complete_command(self, commands):
         if not self.complete_region(commands):

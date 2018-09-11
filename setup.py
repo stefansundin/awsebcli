@@ -7,7 +7,7 @@ import ebcli
 
 
 requires = [
-    'botocore<1.12',
+    'botocore>=1.12.1,<1.13',
     'cement==2.8.2',
     'colorama>=0.3.9,<0.4.0',  # use the same range that 'docker-compose' uses
     'pathspec==0.5.5',
@@ -16,8 +16,8 @@ requires = [
     'setuptools >= 20.0',
     'semantic_version == 2.5.0',
     'six == 1.11.0',
-    'tabulate == 0.7.5',
     'termcolor == 1.1.0',
+    'urllib3>=1.21.1,<1.23'
 ]
 
 testing_requires = [
