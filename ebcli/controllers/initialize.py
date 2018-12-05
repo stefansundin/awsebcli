@@ -70,28 +70,20 @@ class InitController(AbstractBaseController):
         if self.app.pargs.platform:
             self.force_non_interactive = True
 
-        # Code Commit integration
-        self.source = self.app.pargs.source
-        source_location = None
-        branch = None
-        repository = None
-        if self.source is not None:
-            source_location, repository, branch = utils.parse_source(self.source)
-
         # The user specifies directories to initialize
         self.modules = self.app.pargs.modules
         if self.modules and len(self.modules) > 0:
             self.initialize_multiple_directories()
             return
 
+        source_location, branch, repository = None, None, None
+        if self.app.pargs.source:
+            source_location, repository, branch = utils.parse_source(self.app.pargs.source)
+
         default_env = self.get_old_values()
         fileoperations.touch_config_folder()
 
-        if self.interactive:
-            self.region = get_region(self.region, self.interactive, self.force_non_interactive)
-        else:
-            self.region = get_region_from_inputs(self.region)
-        aws.set_region(self.region)
+        self.region = set_region_for_application(self.interactive, self.region, self.force_non_interactive)
 
         self.region = set_up_credentials(self.app.pargs.profile, self.region, self.interactive)
 
@@ -173,7 +165,7 @@ class InitController(AbstractBaseController):
         # Warn the customer if they picked a region that CodeCommit is not supported
         codecommit_region_supported = codecommit.region_supported(self.region)
 
-        if self.source is not None and not codecommit_region_supported:
+        if source_location and not codecommit_region_supported:
             io.log_warning(strings['codecommit.badregion'])
 
         # Prompt customer to opt into CodeCommit unless one of the follows holds:
@@ -181,7 +173,7 @@ class InitController(AbstractBaseController):
             prompt_codecommit = False
         elif not codecommit.region_supported(self.region):
             prompt_codecommit = False
-        elif self.source and source_location.lower() != 'codecommit':
+        elif source_location and source_location.lower() != 'codecommit':
             # Do not prompt if customer has already specified a code source to
             # associate the EB workspace with
             prompt_codecommit = False
@@ -189,53 +181,53 @@ class InitController(AbstractBaseController):
             # Do not prompt if customer has already configured the EB application
             # in the present working directory with Git
             prompt_codecommit = False
+        elif not source_control_setup:
+            if source_location:
+                io.echo(strings['codecommit.nosc'])
+            prompt_codecommit = False
         else:
             prompt_codecommit = True
 
         # Prompt for interactive CodeCommit
         if prompt_codecommit:
-            if not source_control_setup:
-                io.echo(strings['codecommit.nosc'])
-            else:
-                io.echo(strings['codecommit.ccwarning'])
-                try:
-                    if not self.source:
-                        io.validate_action(prompts['codecommit.usecc'], "y")
+            try:
+                if not source_location:
+                    io.validate_action(prompts['codecommit.usecc'], "y")
 
-                    # Setup git config settings for code commit credentials
-                    source_control.setup_codecommit_cred_config()
+                # Setup git config settings for code commit credentials
+                source_control.setup_codecommit_cred_config()
 
-                    # Get user specified repository
-                    remote_url = None
-                    if repository is None:
-                        repository = get_repository_interactive()
-                    else:
-                        try:
+                # Get user specified repository
+                remote_url = None
+                if repository is None:
+                    repository = get_repository_interactive()
+                else:
+                    try:
+                        setup_codecommit_remote_repo(repository, source_control)
+                    except ServiceError as ex:
+                        if source_location:
+                            create_codecommit_repository(repository)
                             setup_codecommit_remote_repo(repository, source_control)
-                        except ServiceError as ex:
-                            if self.source:
-                                create_codecommit_repository(repository)
-                                setup_codecommit_remote_repo(repository, source_control)
-                            else:
-                                io.log_error(strings['codecommit.norepo'])
-                                raise ex
+                        else:
+                            io.log_error(strings['codecommit.norepo'])
+                            raise ex
 
-                    # Get user specified branch
-                    if branch is None:
-                        branch = get_branch_interactive(repository)
-                    else:
-                        try:
-                            codecommit.get_branch(repository, branch)
-                        except ServiceError as ex:
-                            if self.source:
-                                create_codecommit_branch(source_control, branch)
-                            else:
-                                io.log_error(strings['codecommit.nobranch'])
-                                raise ex
-                        source_control.setup_existing_codecommit_branch(branch, remote_url)
+                # Get user specified branch
+                if branch is None:
+                    branch = get_branch_interactive(repository)
+                else:
+                    try:
+                        codecommit.get_branch(repository, branch)
+                    except ServiceError as ex:
+                        if source_location:
+                            create_codecommit_branch(source_control, branch)
+                        else:
+                            io.log_error(strings['codecommit.nobranch'])
+                            raise ex
+                    source_control.setup_existing_codecommit_branch(branch, remote_url)
 
-                except ValidationError:
-                    LOG.debug("Denied option to use CodeCommit, continuing initialization")
+            except ValidationError:
+                LOG.debug("Denied option to use CodeCommit, continuing initialization")
 
         # Initialize the whole setup
         initializeops.setup(self.app_name, self.region, self.solution, dir_path=None, repository=repository, branch=branch)
@@ -653,5 +645,15 @@ def get_region(region_argument, interactive, force_non_interactive=False):
         region_list = regions.get_all_regions()
         result = utils.prompt_for_item_in_list(region_list, default=3)
         region = result.name
+
+    return region
+
+
+def set_region_for_application(interactive, region, force_non_interactive):
+    if interactive or (not region and not force_non_interactive):
+        region = get_region(region, interactive, force_non_interactive)
+    else:
+        region = get_region_from_inputs(region)
+    aws.set_region(region)
 
     return region

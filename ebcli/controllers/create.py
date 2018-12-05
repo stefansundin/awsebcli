@@ -12,6 +12,7 @@
 # language governing permissions and limitations under the License.
 import argparse
 import os
+import time
 
 from ebcli.core import io, fileoperations, hooks
 from ebcli.core.abstractcontroller import AbstractBaseController
@@ -174,7 +175,7 @@ class CreateController(AbstractBaseController):
         env_name = provided_env_name or get_environment_name(app_name, group)
         cname = cname or get_environment_cname(env_name, provided_env_name, tier)
         key_name = key_name or commonops.get_default_keyname()
-        elb_type = elb_type or get_elb_type_from_customer(interactive, single, region, tier)
+        elb_type = elb_type or get_elb_type_from_customer(interactive, single, tier)
         database = self.form_database_object()
         vpc = self.form_vpc_object(tier, single)
 
@@ -446,6 +447,22 @@ def get_environment_tier(tier):
     return tier
 
 
+def get_unique_cname(env_name):
+    """
+    Derive a unique CNAME for a new environment based on the environment name
+    :param env_name: name of the environment
+    directory
+    :return: A unique CNAME for a new environment
+    """
+    cname = env_name
+    tried_cnames = []
+    while not elasticbeanstalk.is_cname_available(cname):
+        tried_cnames.append(cname)
+        _sleep(0.5)
+        cname = utils.get_unique_name(cname, tried_cnames)
+    return cname
+
+
 def get_unique_environment_name(app_name):
     """
     Derive a unique name for a new environment based on the application name
@@ -468,8 +485,9 @@ def get_cname_from_customer(env_name):
     :param env_name: name of the environment whose CNAME to configure
     :return: CNAME chosen for the environment
     """
+    cname = get_unique_cname(env_name)
     while True:
-        cname = io.prompt_for_cname(default=env_name)
+        cname = io.prompt_for_cname(default=cname)
         if cname and not elasticbeanstalk.is_cname_available(cname):
             io.echo('That cname is not available. Please choose another.')
         else:
@@ -477,12 +495,12 @@ def get_cname_from_customer(env_name):
     return cname
 
 
-def get_elb_type_from_customer(interactive, single, region, tier):
+def get_elb_type_from_customer(interactive, single, tier):
     """
     Prompt customer to specify the ELB type if operating in the interactive mode and
     on a load-balanced environment.
 
-    Selection defaults to 'classic' when provided with blank input.
+    Selection defaults to 'application' when provided with blank input.
     :param interactive: True/False depending on whether operating in the interactive mode or not
     :param single: False/True depending on whether environment is load balanced or not
     :param region: AWS region in which in load balancer will be created
@@ -494,28 +512,13 @@ def get_elb_type_from_customer(interactive, single, region, tier):
 
     io.echo()
     io.echo('Select a load balancer type')
-    result = utils.prompt_for_item_in_list(elb_types(region), default=1)
+    result = utils.prompt_for_item_in_list(
+        [elb_names.CLASSIC_VERSION, elb_names.APPLICATION_VERSION, elb_names.NETWORK_VERSION],
+        default=2
+    )
     elb_type = result
 
     return elb_type
-
-
-def elb_types(region):
-    """
-    Returns the list of Load Balancer types that a customer can use in
-    the given region.
-    :param region: Name of region of create environment in
-    :return: list of Load Balancer types
-    """
-    types = [elb_names.CLASSIC_VERSION, elb_names.APPLICATION_VERSION]
-
-    if not region:
-        region = commonops.get_default_region()
-
-    if region not in ['cn-north-1', 'us-gov-west-1']:
-        types.append(elb_names.NETWORK_VERSION)
-
-    return types
 
 
 def get_and_validate_envars(environment_variables_input):
@@ -554,3 +557,7 @@ def get_template_name(app_name, cfg):
             cfg = 'default'
 
     return saved_configs.resolve_config_name(app_name, cfg)
+
+
+def _sleep(seconds):
+    time.sleep(seconds)

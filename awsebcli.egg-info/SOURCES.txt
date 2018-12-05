@@ -1,5 +1,6 @@
 CHANGES.rst
 LICENSE.txt
+MANIFEST.in
 README.rst
 dev_requirements.txt
 setup.py
