@@ -79,6 +79,34 @@ env_yaml = 'env.yaml'
 _marker = object()
 
 
+class ProjectRoot(object):
+    __root = None
+
+    @classmethod
+    def traverse(cls):
+        if cls.__root:
+            return cls.__root
+
+        cwd = os.getcwd()
+        if not os.path.isdir(beanstalk_directory):
+            LOG.debug('beanstalk directory not found in ' + cwd +
+                      '  -Going up a level')
+            os.chdir(os.path.pardir)  # Go up one directory
+
+            if cwd == os.getcwd():  # We can't move any further
+                LOG.debug('Still at the same directory ' + cwd)
+                raise NotInitializedError('EB is not yet initialized')
+
+            ProjectRoot.traverse()
+        else:
+            cls.__root = cwd
+            LOG.debug('Project root found at: ' + cwd)
+
+    @classmethod
+    def _reset_root(cls):
+        cls.__root = None
+
+
 def _get_option(config, section, key, default):
     try:
         return config.get(section, key)
@@ -94,7 +122,7 @@ def clean_up():
     # remove dir
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         if os.path.isdir(beanstalk_directory):
             shutil.rmtree(beanstalk_directory)
     finally:
@@ -109,7 +137,7 @@ def _set_not_none(config, section, option, value):
 def get_war_file_location():
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         lst = glob.glob('{}'.format(os.path.join('build', 'libs', '*.war')))
         try:
             return os.path.join(os.getcwd(), lst[0])
@@ -330,27 +358,10 @@ def create_config_file(
     gitops.set_branch_default_for_current_environment(branch)
 
 
-def _traverse_to_project_root():
-    cwd = os.getcwd()
-    if not os.path.isdir(beanstalk_directory):
-        LOG.debug('beanstalk directory not found in ' + cwd +
-                  '  -Going up a level')
-        os.chdir(os.path.pardir)  # Go up one directory
-
-        if cwd == os.getcwd():  # We can't move any further
-            LOG.debug('Still at the same directory ' + cwd)
-            raise NotInitializedError('EB is not yet initialized')
-
-        _traverse_to_project_root()
-
-    else:
-        LOG.debug('Project root found at: ' + cwd)
-
-
 def get_project_root():
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         return os.getcwd()
     finally:
         os.chdir(cwd)
@@ -366,7 +377,7 @@ def inside_ebcli_project():
 def get_zip_location(file_name):
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         if not os.path.isdir(app_version_folder):
             # create it
             os.makedirs(app_version_folder)
@@ -380,7 +391,7 @@ def get_zip_location(file_name):
 def get_logs_location(folder_name):
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         if not os.path.isdir(logs_folder):
             # create it
             os.makedirs(logs_folder)
@@ -419,7 +430,7 @@ def delete_directory(location):
 def delete_app_versions():
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         delete_directory(app_version_folder)
     finally:
         os.chdir(cwd)
@@ -455,7 +466,7 @@ def zip_up_project(location, ignore_list=None):
     cwd = os.getcwd()
 
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
 
         zip_up_folder('./', location, ignore_list=ignore_list)
 
@@ -539,7 +550,7 @@ def delete_app_file(app_name):
     file_name = beanstalk_directory + app_name
 
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         for file_ext in ['.app.yml']:
             path = file_name + file_ext
             delete_file(path)
@@ -552,7 +563,7 @@ def delete_env_file(env_name):
     file_name = beanstalk_directory + env_name
 
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         for file_ext in ['.ebe.yml', '.env.yml']:
             path = file_name + file_ext
             delete_file(path)
@@ -583,7 +594,7 @@ def save_app_file(app):
 
     file_name = beanstalk_directory + file_name
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
 
         file_name = os.path.abspath(file_name)
 
@@ -605,7 +616,7 @@ def save_env_file(env):
 
     file_name = beanstalk_directory + file_name
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
 
         file_name = os.path.abspath(file_name)
 
@@ -624,7 +635,7 @@ def get_environment_from_file(env_name):
     file_name = beanstalk_directory + env_name
 
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         file_ext = '.env.yml'
         path = file_name + file_ext
         if os.path.exists(path):
@@ -643,7 +654,7 @@ def get_application_from_file(app_name):
     file_name = beanstalk_directory + app_name
 
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         file_ext = '.app.yml'
         path = file_name + file_ext
         if os.path.exists(path):
@@ -680,7 +691,7 @@ def write_config_setting(section, key_name, value, dir_path=None, file=local_con
     if dir_path:
         os.chdir(dir_path)
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
 
         config = _get_yaml_dict(file)
         if not config:
@@ -707,7 +718,7 @@ def get_config_setting(section, key_name, default=_marker):
     cwd = os.getcwd()  # save working directory
 
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
 
         config_global = _get_yaml_dict(global_config_file)
         config_local = _get_yaml_dict(local_config_file)
@@ -770,7 +781,7 @@ def file_exists(full_path):
 def eb_file_exists(location):
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         path = beanstalk_directory + location
         return os.path.isfile(path)
     finally:
@@ -780,7 +791,7 @@ def eb_file_exists(location):
 def build_spec_exists():
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         return os.path.isfile(buildspec_name)
     finally:
         os.chdir(cwd)
@@ -797,7 +808,7 @@ def get_build_configuration():
     cwd = os.getcwd()  # save working directory
 
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
 
         build_spec = _get_yaml_dict(buildspec_name)
 
@@ -849,7 +860,7 @@ def get_ebignore_list():
 def make_eb_dir(location):
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         path = beanstalk_directory + location
         if not os.path.isdir(path):
             os.makedirs(path)
@@ -860,7 +871,7 @@ def make_eb_dir(location):
 def write_to_eb_data_file(location, data):
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         path = beanstalk_directory + location
         write_to_data_file(path, data)
     finally:
@@ -900,7 +911,7 @@ def readlines_from_text_file(location):
 def get_project_file_full_location(location):
     cwd = os.getcwd()
     try:
-        _traverse_to_project_root()
+        ProjectRoot.traverse()
         full_path = os.path.abspath(location)
         return full_path
     finally:
