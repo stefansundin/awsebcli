@@ -10,9 +10,6 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-
-import re
-
 from cement.utils.misc import minimal_logger
 
 from ebcli.core import fileoperations, io
@@ -61,9 +58,11 @@ def setup(
         repository=repository,
         branch=branch)
 
-    # Handle tomcat special case
-    if solution is not None and 'tomcat' in solution.lower() and \
-                heuristics.has_tomcat_war_file():
+    if (
+        solution is not None
+        and 'tomcat' in solution.lower()
+        and heuristics.has_tomcat_war_file()
+    ):
         war_file = fileoperations.get_war_file_location()
         fileoperations.write_config_setting('deploy', 'artifact', war_file)
 

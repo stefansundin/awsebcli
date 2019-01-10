@@ -49,18 +49,16 @@ def fix_botocore_to_pass_response_date():
             parsed = self._do_error_parse(response, shape)
         else:
             parsed = self._do_parse(response, shape)
-        # Inject HTTPStatusCode key in the response metadata if the
-        # response metadata exists.
         if isinstance(parsed, dict) and 'ResponseMetadata' in parsed:
             parsed['ResponseMetadata']['HTTPStatusCode'] = (
                 response['status_code'])
 
-            ##### BEGIN PATCH
+            # BEGIN PATCH
             # Here we inject the date
             parsed['ResponseMetadata']['date'] = (
                 response['headers']['date']
             )
-            ##### END PATCH
+            # END PATCH
         return parsed
 
     parsers.ResponseParser.parse = parse

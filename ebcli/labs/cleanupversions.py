@@ -50,27 +50,29 @@ class CleanupVersionsController(AbstractBaseController):
         app_versions = elasticbeanstalk.get_application_versions(app_name)['ApplicationVersions']
         app_versions.sort(key=itemgetter('DateUpdated'), reverse=True)
 
-        # Filter out versions currently being used
         app_versions = [v for v in app_versions if v['VersionLabel'] not in versions_in_use]
 
         total_num_unused_versions = len(app_versions)
 
         if total_num_unused_versions < num_to_leave:
-            io.echo('Not enough unused application version to leave behind {0}; No application versions to delete.'.format(num_to_leave))
+            io.echo(
+                'Not enough unused application version to leave behind {0}; '
+                'No application versions to delete.'.format(num_to_leave)
+            )
             return
 
-        # Filter out versions newer than filter date
         app_versions = [v for v in app_versions if
                         utils.get_delta_from_now_and_datetime(
                             v['DateUpdated']).days > older_than]
 
-        # dont include most recent
         app_versions = app_versions[num_to_leave:]
 
         if app_versions:
             if not force:
-                response = io.get_boolean_response('{} application versions will be deleted. '
-                                        'Continue?'.format(len(app_versions)))
+                response = io.get_boolean_response(
+                    '{} application versions will be deleted. '
+                    'Continue?'.format(len(app_versions))
+                )
                 if not response:
                     return
         else:
@@ -84,6 +86,3 @@ class CleanupVersionsController(AbstractBaseController):
             except ServiceError as e:
                 io.log_warning('Error deleting version {0}. Error: {1}'
                                .format(label, e.message))
-
-
-

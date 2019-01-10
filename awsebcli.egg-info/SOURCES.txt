@@ -11,8 +11,6 @@ awsebcli.egg-info/requires.txt
 awsebcli.egg-info/top_level.txt
 bin/__init__.py
 bin/eb
-bin/eb_completion.bash
-bin/install-ebcli.py
 ebcli/__init__.py
 ebcli/containers/__init__.py
 ebcli/containers/abstractcontainer.py
@@ -76,7 +74,6 @@ ebcli/controllers/platform/use.py
 ebcli/core/__init__.py
 ebcli/core/abstractcontroller.py
 ebcli/core/base.py
-ebcli/core/completer.py
 ebcli/core/ebcore.py
 ebcli/core/ebglobals.py
 ebcli/core/ebpcore.py

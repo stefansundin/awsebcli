@@ -15,7 +15,6 @@ import locale
 import sys
 import time
 
-locale.setlocale(locale.LC_ALL, 'C')
 from datetime import datetime, timedelta
 from cement.utils.misc import minimal_logger
 from botocore.compat import six
@@ -29,12 +28,14 @@ from ebcli.lib.utils import get_local_time
 from ebcli.resources.strings import prompts
 from ebcli.operations.lifecycleops import interactive_update_lifcycle_policy
 
+locale.setlocale(locale.LC_ALL, 'C')
 Queue = six.moves.queue.Queue
 LOG = minimal_logger(__name__)
 
 
 class VersionScreen(Screen):
     APP_VERSIONS_TABLE_NAME = 'appversion'
+
     def __init__(self, poller=None):
         super(VersionScreen, self).__init__()
         self.empty_row = 3
@@ -104,10 +105,15 @@ class VersionScreen(Screen):
                         raise
 
     def show_help_line(self):
-        text = u' (Commands: {q}uit, {d}elete, {l}ifecycle, {down} {up} {left} {right})' \
-            .format(q=io.bold('Q'), d=io.bold('D'), l=io.bold('L'),
-                    down=term.DOWN_ARROW, up=term.UP_ARROW,
-                    left=term.LEFT_ARROW, right=term.RIGHT_ARROW)
+        text = u' (Commands: {q}uit, {d}elete, {l}ifecycle, {down} {up} {left} {right})'.format(
+            q=io.bold('Q'),
+            d=io.bold('D'),
+            l=io.bold('L'),
+            down=term.DOWN_ARROW,
+            up=term.UP_ARROW,
+            left=term.LEFT_ARROW,
+            right=term.RIGHT_ARROW
+        )
         term.echo_line(text)
 
     def handle_input(self):
@@ -160,16 +166,14 @@ class VersionScreen(Screen):
         self.tables[0].shift_col = 0
         self.flusher(t)
 
-    # TODO: redeploy should be enabled in future releases
-    # def redeploy(self, t):
-    #     """Return true upon successful completion, false if there was an exception"""
-    #     save = self.prompt_and_action(prompts['appversion.redeploy.prompt'], self.deploy_app_version_num)
-    #     self.flusher(t)
-    #     return save
-
     def delete(self, t):
         """Return true upon successful completion, false if there was an exception"""
-        save = self.prompt_and_action(prompts['appversion.delete.prompt'].format(len(self.poller.all_app_versions)), self.delete_app_version_num)
+        save = self.prompt_and_action(
+            prompts['appversion.delete.prompt'].format(
+                len(self.poller.all_app_versions)
+            ),
+            self.delete_app_version_num
+        )
         self.flusher(t)
         return save
 
@@ -185,29 +189,6 @@ class VersionScreen(Screen):
             sys.stdout.flush()
             io.echo(t.clear_eos(), '')
             return
-
-    # TODO: redeploy should be enabled in future releases
-    # def deploy_app_version_num(self, version_number):
-    #     """Take in user input as a string,
-    #     convert it to a decimal,
-    #     get the version-label that the user input matches,
-    #     and attempt to redeploy that version.
-    #     """
-    #     version_number = int(version_number)  # raises InvalidOperation Exception
-    #     app_versions = self.poller.all_app_versions
-    #     v_len = len(app_versions)
-    #     if version_number > v_len or version_number < 1:
-    #         raise IndexError
-    #     app_version = app_versions[v_len - version_number]
-    #     self.version_label = app_version.get(u'VersionLabel')
-    #     if self.version_label:
-    #         env_name = self.poller.env_name
-    #         # redeploy specified application version
-    #         self.request_id = elasticbeanstalk.update_env_application_version(
-    #             env_name, self.version_label, False)
-    #     # Exception should never get thrown
-    #     else:
-    #         raise Exception
 
     def delete_app_version_num(self, version_number):
         """Take in user input as a string,
@@ -250,14 +231,16 @@ class VersionDataPoller(DataPoller):
             self.curr_deploy_num = self.get_curr_deploy_num()
             self.env_data = self.get_env_data()
 
-
     PAGE_LENGTH = 10
 
     def get_version_data(self):
-        """Gets app_versions data by pages. Pages that were already accessed would be stored in history
+        """
+        Gets app_versions data by pages. Pages that were already accessed would be
+        stored in history
 
-        Then modifies app_versions: add SinceCreated field and format DateCreated field for each version in app_versions.
-        Paginates, so appends PAGE_LENGTH versions with each call
+        Then modifies app_versions: add SinceCreated field and format DateCreated
+        field for each version in app_versions. Paginates, so appends PAGE_LENGTH
+        versions with each call
 
         :returns data object with two keys: environment and app_versions
         note: environment data would be None if no environment is specified
@@ -267,9 +250,18 @@ class VersionDataPoller(DataPoller):
             return self.get_table_data()
 
         if self.next_token:
-            response = elasticbeanstalk.get_application_versions(self.app_name, None, self.PAGE_LENGTH, self.next_token)
+            response = elasticbeanstalk.get_application_versions(
+                self.app_name,
+                None,
+                self.PAGE_LENGTH,
+                self.next_token
+            )
         else:
-            response = elasticbeanstalk.get_application_versions(self.app_name, None, self.PAGE_LENGTH)
+            response = elasticbeanstalk.get_application_versions(
+                self.app_name,
+                None,
+                self.PAGE_LENGTH
+            )
 
         new_page_versions = response['ApplicationVersions']
         self.next_token = None

@@ -47,7 +47,10 @@ def display_interactive_health(
 
         poller = DataPoller
         screen = Screen()
-        platform = PlatformVersion(env['PlatformArn']) if env.get('PlatformArn') else SolutionStack(env['SolutionStackName'])
+        platform = (
+            PlatformVersion(env['PlatformArn'])
+            if env.get('PlatformArn') else SolutionStack(env['SolutionStackName'])
+        )
         create_health_tables(screen, platform)
     elif env['Tier']['Name'] == 'WebServer':
         LOG.debug('Platform has basic health capabilities')
@@ -58,11 +61,9 @@ def display_interactive_health(
     else:
         raise NotSupportedError('The health dashboard is currently not supported for this environment.')
 
-    # Start getting health data
     poller = poller(app_name, env_name)
     poller.start_background_polling()
 
-    # Start
     try:
         screen.start_screen(poller, env, refresh,
                             mono=mono, default_table=default_view)

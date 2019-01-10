@@ -40,7 +40,9 @@ def download_source_bundle(app_name, env_name):
     env = elasticbeanstalk.get_environment(app_name=app_name, env_name=env_name)
     if env.version_label and env.version_label != 'Sample Application':
         app_version = elasticbeanstalk.get_application_versions(
-        app_name, version_labels=[env.version_label])['ApplicationVersions'][0]
+            app_name,
+            version_labels=[env.version_label]
+        )['ApplicationVersions'][0]
 
         source_bundle = app_version['SourceBundle']
         bucket_name = source_bundle['S3Bucket']
@@ -49,7 +51,6 @@ def download_source_bundle(app_name, env_name):
         data = s3.get_object(bucket_name, key_name)
         filename = get_filename(key_name)
     else:
-        # sample app
         template = cloudformation.get_template('awseb-' + env.id + '-stack')
         try:
             url = template['TemplateBody']['Parameters']['AppSource']['Default']
@@ -70,12 +71,12 @@ def download_source_bundle(app_name, env_name):
     try:
         fileoperations.ProjectRoot.traverse()
         if heuristics.directory_is_empty():
-            # If we dont have any project code, unzip as current project
             io.echo('Unzipping application version as project files.')
             fileoperations.unzip_folder(location, os.getcwd())
             io.echo('Done.')
     finally:
         os.chdir(cwd)
+
 
 def get_filename(url):
     pattern = re.compile('^(?:.*[/])*([^/]+)$')

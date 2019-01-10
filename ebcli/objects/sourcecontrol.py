@@ -24,7 +24,7 @@ from cement.utils.shell import exec_cmd
 
 from ebcli.lib import utils
 from ebcli.core import fileoperations, io
-from ebcli.objects.exceptions import(
+from ebcli.objects.exceptions import (
     CommandError,
     NotInitializedError,
     NoSourceControlError
@@ -60,7 +60,6 @@ class SourceControl(object):
 
     @staticmethod
     def get_source_control():
-        # First check for setting in config file
         try:
             git_installed = fileoperations.get_config_setting('global', 'sc')
         except NotInitializedError:
@@ -85,7 +84,6 @@ class NoSC(SourceControl):
         return None
 
     def get_version_label(self):
-        # use timestamp as version
         suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
         return 'app-' + suffix
 
@@ -130,12 +128,17 @@ class Git(SourceControl):
         if exitcode == 128:
             # 128 = No HEAD
             if "HEAD" in stderr:
-                LOG.debug('An error occurred while handling git command.'
-                                   '\nError code: ' + str(exitcode) + ' Error: ' +
-                                   stderr)
-                raise CommandError('git could not find the HEAD; most likely because there are no commits present')
+                LOG.debug(
+                    'An error occurred while handling git command.\nError code: '
+                    + str(exitcode)
+                    + ' Error: '
+                    + stderr
+                )
+                raise CommandError(
+                    'git could not find the HEAD; '
+                    'most likely because there are no commits present'
+                )
 
-        # Something else happened
         raise CommandError('An error occurred while handling git command.'
                            '\nError code: ' + str(exitcode) + ' Error: ' +
                            stderr)
@@ -146,7 +149,6 @@ class Git(SourceControl):
             self._run_cmd(['git', 'describe', '--always', '--abbrev=4'])
 
         version_label = 'app-{}-{:%y%m%d_%H%M%S}'.format(stdout, datetime.datetime.now())
-        #Replace dots with underscores
         return version_label.replace('.', '_')
 
     def untracked_changes_exist(self):
@@ -161,7 +163,6 @@ class Git(SourceControl):
             LOG.debug('`git diff --numstat` resulted in an error: ' + str(e))
 
     def get_current_repository(self):
-        # it's possible 'origin' isn't the name of their remote so attempt to get their current remote
         current_branch = self.get_current_branch()
         get_remote_name_command = ['git', 'config', '--get', 'branch.{0}.remote'.format(current_branch)]
         LOG.debug(
@@ -230,14 +231,12 @@ class Git(SourceControl):
                                                   '-o', sub_location, commit_id])
         io.log_info('git archive output: {0}'.format(stderr))
 
-        # append and remove the submodule archive
         fileoperations.zip_append_archive(main_location, sub_location)
         fileoperations.delete_file(sub_location)
 
     def do_zip(self, location, staged=False):
         cwd = os.getcwd()
         try:
-            # must be in project root for git archive to work.
             fileoperations.ProjectRoot.traverse()
 
             if staged:
@@ -256,13 +255,20 @@ class Git(SourceControl):
             must_zip_submodules = fileoperations.get_config_setting('global', 'include_git_submodules')
 
             if must_zip_submodules:
-                # individually zip submodules if there are any
                 stdout, stderr, exitcode = self._run_cmd(['git', 'submodule', 'foreach', '--recursive'])
 
                 for index, line in enumerate(stdout.splitlines()):
                     submodule_dir = line.split(' ')[1].strip('\'')
                     os.chdir(os.path.join(project_root, submodule_dir))
-                    self.do_zip_submodule(location, "{0}_{1}".format(location, str(index)), staged=staged, submodule_dir=submodule_dir)
+                    self.do_zip_submodule(
+                        location,
+                        "{0}_{1}".format(
+                            location,
+                            str(index)
+                        ),
+                        staged=staged,
+                        submodule_dir=submodule_dir
+                    )
 
         finally:
             os.chdir(cwd)
@@ -274,8 +280,6 @@ class Git(SourceControl):
 
     def is_setup(self):
         if fileoperations.is_git_directory_present():
-            # We know that the directory has git, but
-            # is git on the path?
             if not fileoperations.program_is_installed('git'):
                 raise CommandError(strings['sc.gitnotinstalled'])
             else:
@@ -317,7 +321,13 @@ class Git(SourceControl):
     def push_codecommit_code(self):
         io.log_info('Pushing local code to codecommit with git-push')
 
-        stdout, stderr, exitcode = self._run_cmd(['git', 'push', self.get_current_repository(), self.get_current_branch()])
+        stdout, stderr, exitcode = self._run_cmd(
+            [
+                'git', 'push',
+                self.get_current_repository(),
+                self.get_current_branch()
+            ]
+        )
 
         if exitcode != 0:
             io.log_warning('Git is not able to push code: {0}'.format(exitcode))
@@ -333,22 +343,50 @@ class Git(SourceControl):
 
         stdout, stderr, exitcode = self._run_cmd(remote_add_command, handle_exitcode=False)
 
-        # Setup the remote repository with code commit
         if exitcode != 0:
             if exitcode == 128:
-                remote_set_url_command = ['git', 'remote', 'set-url', self.codecommit_remote_name, remote_url]
-                LOG.debug('Remote already exists, performing: {0}'.format(' '.join(remote_set_url_command)))
+                remote_set_url_command = [
+                    'git', 'remote', 'set-url',
+                    self.codecommit_remote_name,
+                    remote_url
+                ]
+                LOG.debug(
+                    'Remote already exists, performing: {0}'.format(
+                        ' '.join(remote_set_url_command)
+                    )
+                )
                 self._run_cmd(remote_set_url_command)
 
-                remote_set_url_with_push_command = ['git', 'remote', 'set-url', '--push', self.codecommit_remote_name, remote_url]
-                LOG.debug('                {0}'.format(' '.join(remote_set_url_with_push_command)))
+                remote_set_url_with_push_command = [
+                    'git',
+                    'remote',
+                    'set-url',
+                    '--push',
+                    self.codecommit_remote_name,
+                    remote_url
+                ]
+                LOG.debug(
+                    '                {0}'.format(
+                        ' '.join(remote_set_url_with_push_command)
+                    )
+                )
                 self._run_cmd(remote_set_url_with_push_command)
             else:
                 LOG.debug("Error setting up git config for CodeCommit: {0}".format(stderr))
                 return
         else:
-            remote_set_url_with_add_push_command = ['git', 'remote', 'set-url', '--add', '--push', self.codecommit_remote_name, remote_url]
-            LOG.debug('Setting remote URL and pushing to it: {0}'.format(' '.join(remote_set_url_with_add_push_command)))
+            remote_set_url_with_add_push_command = [
+                'git', 'remote', 'set-url',
+                '--add',
+                '--push',
+                self.codecommit_remote_name,
+                remote_url
+            ]
+            LOG.debug(
+                'Setting remote URL and pushing to it: {0}'.format(
+                    ' '.join(remote_set_url_with_add_push_command)
+                )
+            )
             self._run_cmd(remote_set_url_with_add_push_command)
             self._handle_exitcode(exitcode, stderr)
 
@@ -357,13 +395,10 @@ class Git(SourceControl):
     def setup_new_codecommit_branch(self, branch_name):
         LOG.debug("Setting up CodeCommit branch")
 
-        # Get fetch to ensure the remote repository is up to date
         self.fetch_remote_branches(self.codecommit_remote_name)
 
-        # Attempt to check out the desired branch, if it doesn't exist create it from the current HEAD
         self.checkout_branch(branch_name, create_branch=True)
 
-        # Push the current code and set the remote as the current working remote
         stdout, stderr, exitcode = self._run_cmd(
             ['git', 'push', '-u', self.codecommit_remote_name, branch_name],
             handle_exitcode=False
@@ -378,10 +413,8 @@ class Git(SourceControl):
 
         LOG.debug('git push result: ' + stdout)
 
-        # Get fetch to ensure the remote repository is up to date because we just pushed a new branch
         self.fetch_remote_branches(self.codecommit_remote_name)
 
-        # Set the remote branch up so it's not using the presigned remote OR if the push failed.
         stdout, stderr, exitcode = self._run_cmd(
             [
                 'git',
@@ -398,16 +431,19 @@ class Git(SourceControl):
         LOG.debug('git branch result: ' + stdout)
 
     def setup_existing_codecommit_branch(self, branch_name, remote_url=None):
-        # Get fetch to ensure the remote repository is up to date
         self.fetch_remote_branches(self.codecommit_remote_name, remote_url)
 
-        # Attempt to check out the desired branch, if it doesn't exist create it from the current HEAD
         self.checkout_branch(branch_name, create_branch=True)
 
-        # Setup the remote branch with the local git directory
         stdout, stderr, exitcode = self._run_cmd(
-            ['git', 'branch', '--set-upstream-to', "{0}/{1}".format(self.codecommit_remote_name, branch_name)],
-            handle_exitcode=False)
+            [
+                'git', 'branch', '--set-upstream-to', "{0}/{1}".format(
+                    self.codecommit_remote_name,
+                    branch_name
+                )
+            ],
+            handle_exitcode=False
+        )
 
         if exitcode != 0:
             LOG.debug('git branch --set-upstream-to error: ' + stderr)
@@ -418,7 +454,6 @@ class Git(SourceControl):
         return True
 
     def checkout_branch(self, branch_name, create_branch=False):
-        # Attempt to checkout an existing branch and if it doesn't exist create a new one.
         stdout, stderr, exitcode = self._run_cmd(['git', 'checkout', branch_name], handle_exitcode=False)
 
         if exitcode != 0:
@@ -426,8 +461,11 @@ class Git(SourceControl):
             LOG.debug(stderr)
             if exitcode == 1:
                 if create_branch:
-                    LOG.debug("Could not checkout branch '{0}', creating the branch locally with current HEAD".format(branch_name))
-                    stdout, stderr, exitcode = self._run_cmd(['git', 'checkout', '-b', branch_name])
+                    LOG.debug(
+                        "Could not checkout branch '{0}', creating the branch "
+                        "locally with current HEAD".format(branch_name)
+                    )
+                    self._run_cmd(['git', 'checkout', '-b', branch_name])
                 else:
                     return False
         return True
@@ -441,9 +479,12 @@ class Git(SourceControl):
         with open('README', 'w') as readme:
             readme.write('')
         self._run_cmd(['git', 'add', 'README'])
-        stdout, stderr, exitcode = self._run_cmd(['git', 'commit', '--allow-empty', '-m', 'EB CLI initial commit'], handle_exitcode=False)
+        stdout, stderr, exitcode = self._run_cmd(
+            ['git', 'commit', '--allow-empty', '-m', 'EB CLI initial commit'],
+            handle_exitcode=False
+        )
 
-        if exitcode !=0:
+        if exitcode != 0:
             LOG.debug('git was not able to initialize an empty commit: {0}'.format(stderr))
 
         LOG.debug('git commit result: {0}'.format(stdout))
@@ -497,13 +538,10 @@ class Git(SourceControl):
         codecommit_url_regex = re.compile(r'.*git-codecommit\..*\.amazonaws.com.*')
 
         if not codecommit_url_regex.search(remote_url):
-            # Prevent communiocating with non-CodeCommit repositories because of unknown security implications
+            # Prevent communications with non-CodeCommit repositories because of unknown security implications
             # Integration with non-CodeCommit repositories is not something Beanstalk presently supports
             raise NoSourceControlError('Could not connect to repository located at {}'.format(remote_url))
 
 
 def credential_helper_command():
-    if sys.platform.startswith('win32'):
-        return '"!aws codecommit credential-helper $@"'
-    else:
-        return '!aws codecommit credential-helper $@'
+    return '!aws codecommit credential-helper $@'

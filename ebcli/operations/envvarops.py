@@ -77,14 +77,19 @@ def sanitize_environment_variables_from_customer_input(environment_variables_inp
 
 def create_environment_variables_list(environment_variables, as_option_settings=True):
     """
-    Returns a pair of environment variables to add and remove from a list of sanitized environment variables.
+    Returns a pair of environment variables to add and remove from a list of
+    sanitized environment variables.
 
-    If `as_option_settings` is set to `True`, the list of environment variables to add is transformed
-    into option settings in the 'aws:elasticbeanstalk:application:environment' namespace.
+    If `as_option_settings` is set to `True`, the list of environment variables
+    to add is transformed into option settings in the
+    'aws:elasticbeanstalk:application:environment' namespace.
 
-    :param environment_variables: a list of the sanitized environment variables specified in the format KEY_i=VALUE_i
-    :param as_option_settings: boolean indicating whether to transform `environment_variables` into option settings
-    :return: a pair of environment variables to add and remove in the format dictated by `as_option_settings`
+    :param environment_variables: a list of the sanitized environment variables
+                                  specified in the format KEY_i=VALUE_i
+    :param as_option_settings: boolean indicating whether to transform
+                               `environment_variables` into option settings
+    :return: a pair of environment variables to add and remove in the format
+             dictated by `as_option_settings`
     """
     namespace = 'aws:elasticbeanstalk:application:environment'
 
@@ -92,7 +97,7 @@ def create_environment_variables_list(environment_variables, as_option_settings=
     options_to_remove = set()
     for environment_variable_string in environment_variables:
         if (
-            not re.match('^[\w\\_.:/+@-][^="]*=.*$', environment_variable_string)
+            not re.match(r'^[\w\\_.:/+@-][^="]*=.*$', environment_variable_string)
             or '=' not in environment_variable_string
         ):
             raise InvalidSyntaxError(strings['setenv.invalidformat'])
@@ -146,8 +151,6 @@ def setenv(app_name, env_name, var_list, timeout=None):
                                                      remove=options_to_remove)
 
     if timeout is None:
-        # specify a lower timeout duration because the `UpdateEnvironment`
-        # workflow does not take very long to just set environment variables.
         timeout = 4
 
     commonops.wait_for_success_events(request_id,

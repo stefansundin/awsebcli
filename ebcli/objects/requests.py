@@ -12,7 +12,6 @@
 # language governing permissions and limitations under the License.
 import copy
 
-from ebcli.lib import ec2, utils
 from ebcli.objects.solutionstack import SolutionStack
 from ebcli.objects.platform import PlatformVersion
 from ebcli.resources.strings import strings
@@ -48,7 +47,6 @@ class OptionSetting(object):
             )
 
         return option_settings
-
 
 
 class CreateEnvironmentRequest(object):
@@ -108,8 +106,12 @@ class CreateEnvironmentRequest(object):
         self_dict = copy.deepcopy(self.__dict__)
         other_dict = copy.deepcopy(other.__dict__)
 
-        self_dict['option_settings'] = OptionSetting.option_settings_from_json(self_dict.get('option_settings', []))
-        other_dict['option_settings'] = OptionSetting.option_settings_from_json(other_dict.get('option_settings', []))
+        self_dict['option_settings'] = OptionSetting.option_settings_from_json(
+            self_dict.get('option_settings', [])
+        )
+        other_dict['option_settings'] = OptionSetting.option_settings_from_json(
+            other_dict.get('option_settings', [])
+        )
 
         return self_dict == other_dict
 
@@ -217,7 +219,6 @@ class CreateEnvironmentRequest(object):
 
     def add_client_defaults(self):
         if self.template_name:
-            # dont add client defaults if a template is being used
             return
 
         if self.platform and self.platform.has_healthd_support:
@@ -285,8 +286,11 @@ class CreateEnvironmentRequest(object):
         self.add_option_setting(namespace, option_names.VPC_ID,
                                 self.vpc['id'])
         if self.vpc['publicip']:
-            self.add_option_setting(namespace, option_names.PUBLIC_IP,
-                                self.vpc['publicip'])
+            self.add_option_setting(
+                namespace,
+                option_names.PUBLIC_IP,
+                self.vpc['publicip']
+            )
         if self.vpc['elbscheme']:
             self.add_option_setting(namespace, option_names.ELB_SCHEME,
                                     self.vpc['elbscheme'])
@@ -320,6 +324,5 @@ class CloneEnvironmentRequest(CreateEnvironmentRequest):
 
     def compile_option_settings(self):
         if not self.compiled:
-            # dont compile extras like vpc/database/etc.
             self.compile_common_options()
             self.compiled = True

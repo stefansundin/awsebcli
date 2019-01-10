@@ -10,9 +10,7 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-
 from copy import copy
-import re
 
 from ebcli.core import io
 from ebcli.display.table import Table, justify_and_trim
@@ -51,15 +49,21 @@ class StatusTable(RequestTable):
         super(StatusTable, self).draw(rows, data)
 
     CAUSE_SCROLL_FACTOR = 5
+
     def get_column_data(self, data, column):
         if data.get('Copy', False) and column.key != 'Cause':
             d = ' '
         else:
             d = str(data.get(column.key, '-'))
 
-        if column.key == 'Cause'\
-            and self.screen.horizontal_offset > self.screen.max_columns:
-            cause_scroll = (self.screen.horizontal_offset - self.screen.max_columns) * StatusTable.CAUSE_SCROLL_FACTOR
+        if (
+            column.key == 'Cause'
+            and self.screen.horizontal_offset > self.screen.max_columns
+        ):
+            cause_scroll = (
+                self.screen.horizontal_offset
+                - self.screen.max_columns
+            ) * StatusTable.CAUSE_SCROLL_FACTOR
             d = d[cause_scroll:]
 
         c_data = justify_and_trim(
@@ -72,10 +76,8 @@ class StatusTable(RequestTable):
 
     def expand_rows(self, data):
         new_data = list()
-        # Get overall data
         total = copy(self.screen.data['environment'])
         total['InstanceId'] = '  Overall'
-        # new_data.append(total)
         causes = total.get('Causes', [])
         for i in range(1, len(causes)):
             c = causes[i]

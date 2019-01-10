@@ -133,7 +133,7 @@ class NoRegionError(EBCLIException):
     pass
 
 
-class ConnectionError(EBCLIException):
+class ConnectionError(OSError):
     """ Region provided cannot be resolved    """
     pass
 
@@ -189,6 +189,7 @@ class FileTooLargeError(EBCLIException):
 class UploadError(EBCLIException):
     """ An error occured while uploading app version
     """
+
 
 class WorkerQueueNotFound(EBCLIException):
     """ A worker queue could not be found for a worker environment """

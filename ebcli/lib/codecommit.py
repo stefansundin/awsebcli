@@ -10,21 +10,10 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-import datetime
-import sys
-
-if sys.version_info >= (3, 0):
-    from urllib.parse import urlsplit
-if sys.version_info < (3, 0) and sys.version_info >= (2, 5):
-    from urlparse import urlsplit
-
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
 from cement.utils.misc import minimal_logger
 
 from ebcli.lib import aws
 from ebcli.core import io
-from ebcli.lib import utils
 from ebcli.objects.exceptions import ServiceError
 
 LOG = minimal_logger(__name__)
@@ -54,11 +43,17 @@ def _make_api_call(operation_name, **operation_options):
         result = aws.make_api_call('codecommit', operation_name, **operation_options)
     except ServiceError as ex:
         if ex.code == 'AccessDeniedException':
-            io.echo("EB CLI does not have the right permissions to access CodeCommit."
-                    " List of IAM policies needed by EB CLI, please configure and try again.\n "
-                    "codecommit:CreateRepository\n codecommit:CreateBranch\n codecommit:GetRepository\n "
-                    "codecommit:ListRepositories\n codecommit:ListBranches\n"
-                    "To learn more, see Docs: http://docs.aws.amazon.com/codecommit/latest/userguide/access-permissions.html")
+            io.echo(
+                "EB CLI does not have the right permissions to access CodeCommit."
+                " List of IAM policies needed by EB CLI, please configure and try again.\n"
+                " codecommit:CreateRepository\n"
+                " codecommit:CreateBranch\n"
+                " codecommit:GetRepository\n"
+                " codecommit:ListRepositories\n"
+                " codecommit:ListBranches\n"
+                "To learn more, see Docs: "
+                "http://docs.aws.amazon.com/codecommit/latest/userguide/access-permissions.html"
+            )
         raise ex
     return result
 

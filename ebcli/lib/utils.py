@@ -23,12 +23,13 @@ from botocore.compat import six
 from cement.ext.ext_logging import LoggingLogHandler
 from cement.utils.misc import minimal_logger
 from subprocess import Popen, PIPE, STDOUT
-urllib = six.moves.urllib
 
 from ebcli.objects.exceptions import CommandError, InvalidOptionsError
-from ebcli.core import io, fileoperations
+from ebcli.core import io
 
+urllib = six.moves.urllib
 LOG = minimal_logger(__name__)
+
 
 def prompt_for_item_in_list(lst, default=1):
     ind = prompt_for_index_in_list(lst, default)
@@ -45,7 +46,7 @@ def prompt_for_index_in_list(lst, default=1):
             choice = int(io.prompt('default is ' + str(default),
                                    default=default))
             if not (0 < choice <= len(lst)):
-                raise ValueError  # Also thrown by non int numbers
+                raise ValueError
             else:
                 break
         except ValueError:
@@ -56,12 +57,6 @@ def prompt_for_index_in_list(lst, default=1):
 
 
 def get_unique_name(name, current_uniques):
-    # with warnings.catch_warnings():
-    #     warnings.simplefilter('ignore')
-    #     if sys.version_info[0] >= 3:
-    #         base_name = name
-    #     else:
-    #         base_name = name.decode('utf8')
     base_name = name
 
     number = 2
@@ -73,11 +68,12 @@ def get_unique_name(name, current_uniques):
 
 
 def mask_vars(key, value):
-    if (re.match('.*_CONNECTION_STRING', key) or
-                key == 'AWS_ACCESS_KEY_ID' or
-                key == 'AWS_SECRET_KEY') \
-        and value is not None:
-            value = "*****"
+    if (
+            re.match('.*_CONNECTION_STRING', key)
+            or key == 'AWS_ACCESS_KEY_ID'
+            or key == 'AWS_SECRET_KEY'
+    ) and value is not None:
+        value = "*****"
 
     return key, value
 
@@ -90,7 +86,6 @@ def print_list_in_columns(lst):
     """
     if sys.stdout.isatty():
         lst = list_to_columns(lst)
-        index = 0
         for x in range(0, len(lst[0])):
             line = []
             for i in range(0, len(lst)):
@@ -101,7 +96,6 @@ def print_list_in_columns(lst):
 
             io.echo_and_justify(42, *line)
     else:
-        # Dont print in columns if using pipe
         for i in lst:
             io.echo(i)
 
@@ -269,7 +263,7 @@ def prettydate(d):
     :return str
     """
 
-    if isinstance(d, float):  # epoch timestamp
+    if isinstance(d, float):
         d = datetime.utcfromtimestamp(d)
 
     diff = datetime.utcnow() - d
@@ -335,19 +329,23 @@ def check_source(value):
 def parse_source(source):
     if source:
         split_source = source.split('/')
+        repository, branch = '', ''
 
         source_location = split_source[0].lower()
         raise_if_source_location_is_not_codecommit(source_location)
 
-        repository = split_source[1]
-        branch = split_source[2]
+        if len(split_source) > 1:
+            repository = split_source[1]
+            branch = '/'.join(split_source[2:])
 
         return source_location, repository, branch
 
 
 def raise_if_source_location_is_not_codecommit(source_location):
     if source_location != 'codecommit':
-        raise InvalidOptionsError('Source location "{0}" is not supported by the EBCLI'.format(source_location))
+        raise InvalidOptionsError(
+            'Source location "{0}" is not supported by the EBCLI'.format(source_location)
+        )
 
 
 def encode_to_ascii(unicode_value):

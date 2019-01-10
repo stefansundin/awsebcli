@@ -16,17 +16,13 @@ from zipfile import ZipFile
 
 from cement.utils.misc import minimal_logger
 
-from ebcli.operations import gitops, buildspecops, commonops, solution_stack_ops
+from ebcli.operations import gitops, buildspecops, commonops
 from ebcli.operations.tagops import tagops
 from ebcli.operations.tagops.taglist import TagList
 from ebcli.lib import cloudformation, elasticbeanstalk, heuristics, iam, utils
 from ebcli.lib.aws import InvalidParameterValueError
 from ebcli.core import io, fileoperations
-from ebcli.objects.exceptions import (
-    NotAuthorizedError,
-    NotFoundError,
-    TimeoutError
-)
+from ebcli.objects.exceptions import NotAuthorizedError
 from ebcli.resources.strings import strings, responses, prompts
 from ebcli.resources.statics import iam_attributes
 import json
@@ -40,7 +36,7 @@ DEFAULT_SERVICE_ROLE_POLICIES = [
     'arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService'
 ]
 
-# TODO: Make unit tests for these changes
+
 def make_new_env(
         env_request,
         branch_default=False,
@@ -52,13 +48,11 @@ def make_new_env(
 ):
     resolve_roles(env_request, interactive)
 
-    # Parse and get Build Configuration from BuildSpec if it exists
     build_config = None
     if fileoperations.build_spec_exists():
         build_config = fileoperations.get_build_configuration()
         LOG.debug("Retrieved build configuration from buildspec: {0}".format(build_config.__str__()))
 
-    # deploy code
     codecommit_setup = gitops.git_management_enabled()
     if not env_request.sample_application and not env_request.version_label:
         if source is not None:
@@ -82,7 +76,11 @@ def make_new_env(
                                              build_config=build_config)
 
         if build_config is not None:
-            buildspecops.stream_build_configuration_app_version_creation(env_request.app_name, env_request.version_label, build_config)
+            buildspecops.stream_build_configuration_app_version_creation(
+                env_request.app_name,
+                env_request.version_label,
+                build_config
+            )
         elif process_app_version is True:
             success = commonops.wait_for_processed_app_versions(
                 env_request.app_name,
@@ -96,7 +94,6 @@ def make_new_env(
         env_request.version_label = \
             commonops.create_dummy_app_version(env_request.app_name)
 
-    # Create env
     if env_request.key_name:
         commonops.upload_keypair_if_needed(env_request.key_name)
 
@@ -108,12 +105,9 @@ def make_new_env(
     result, request_id = create_env(env_request,
                                     interactive=interactive)
 
-    env_name = result.name  # get the (possibly) updated name
+    env_name = result.name
 
-    # Edit configurations
-    ## Get default environment
     default_env = commonops.get_current_branch_environment()
-    ## Save env as branch default if needed
     if not default_env or branch_default:
         commonops.set_environment_for_current_branch(env_name)
         if codecommit_setup:
@@ -124,7 +118,6 @@ def make_new_env(
     if download_sample_app:
         download_and_extract_sample_app(env_name)
 
-    # Print status of env
     result.print_env_details(
         io.echo,
         elasticbeanstalk.get_environments,
@@ -232,7 +225,6 @@ def download_sample_app_user_choice():
 
 
 def create_env(env_request, interactive=True):
-    # If a template is being used, we want to try using just the template
     if env_request.template_name:
         platform = env_request.platform
         env_request.platform = None
@@ -245,8 +237,6 @@ def create_env(env_request, interactive=True):
         except InvalidParameterValueError as e:
             if e.message == responses['app.notexists'].replace(
                         '{app-name}', '\'' + env_request.app_name + '\''):
-                # App doesnt exist, must be a new region.
-                ## Lets create the app in the region
                 commonops.create_app(env_request.app_name)
             elif e.message == responses['create.noplatform']:
                 if platform:
@@ -257,7 +247,7 @@ def create_env(env_request, interactive=True):
                 LOG.debug('creating env returned error: ' + e.message)
                 if re.match(responses['env.cnamenotavailable'], e.message):
                     io.echo(prompts['cname.unavailable'])
-                    cname = io.prompt_for_cname()
+                    io.prompt_for_cname()
                 elif re.match(responses['env.nameexists'], e.message):
                     io.echo(strings['env.exists'])
                     current_environments = elasticbeanstalk.get_all_environment_names()
@@ -267,15 +257,11 @@ def create_env(env_request, interactive=True):
                         default_name=unique_name)
                 elif e.message == responses['app.notexists'].replace(
                             '{app-name}', '\'' + env_request.app_name + '\''):
-                    # App doesnt exist, must be a new region.
-                    ## Lets create the app in the region
                     commonops.create_app(env_request.app_name)
                 else:
                     raise
             else:
                 raise
-
-        # Try again with new values
 
 
 def get_service_role():
@@ -284,8 +270,6 @@ def get_service_role():
         if DEFAULT_SERVICE_ROLE_NAME not in roles:
             return None
     except NotAuthorizedError:
-        # No permissions to list roles
-        # Assume role exists, we will handle error at a deeper level
         pass
 
     return DEFAULT_SERVICE_ROLE_NAME
@@ -304,7 +288,6 @@ def create_default_service_role():
         iam.create_role_with_policy(role_name, trust_document,
                                     DEFAULT_SERVICE_ROLE_POLICIES)
     except NotAuthorizedError as e:
-        # NO permissions to create or do something
         raise NotAuthorizedError(prompts['create.servicerole.nopermissions']
                                  .format(DEFAULT_SERVICE_ROLE_NAME, e))
 
@@ -320,13 +303,9 @@ def resolve_roles(env_request, interactive):
     LOG.debug('Resolving roles')
 
     if (
-	        (
-	            not env_request.instance_profile or
-	            env_request.instance_profile == iam_attributes.DEFAULT_ROLE_NAME
-	        ) and not env_request.template_name
-    ):
-        # Service supports no profile, however it is not good/recommended
-        # Get the eb default profile
+        not env_request.instance_profile or
+        env_request.instance_profile == iam_attributes.DEFAULT_ROLE_NAME
+    ) and not env_request.template_name:
         env_request.instance_profile = commonops.create_default_instance_profile()
 
     if (
@@ -349,7 +328,6 @@ def resolve_roles(env_request, interactive):
                         io.echo(json.dumps(document, indent=4))
                     io.get_input(prompts['general.pressenter'])
 
-            # Create the service role if it does not exist
             role = create_default_service_role()
 
         env_request.service_role = role
@@ -360,8 +338,7 @@ def _get_default_service_trust_document():
     Just a string representing the service role policy.
     Includes newlines for pretty printing :)
     """
-    return \
-'''{
+    return """{
     "Version": "2012-10-17",
     "Statement": [{
         "Sid": "",
@@ -376,7 +353,7 @@ def _get_default_service_trust_document():
             }
         }
     }]
-}'''
+}"""
 
 
 def get_and_validate_tags(addition_string):

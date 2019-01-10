@@ -21,7 +21,6 @@ from ebcli.resources.statics import namespaces, option_names
 from ebcli.objects.solutionstack import SolutionStack
 from ebcli.objects.exceptions import NotFoundError, InvalidStateError, \
     AlreadyExistsError
-from ebcli.objects.tier import Tier
 from ebcli.lib import aws
 from ebcli.lib.aws import InvalidParameterValueError
 from ebcli.objects.event import Event
@@ -106,7 +105,16 @@ def create_application(app_name, descrip):
     return result
 
 
-def create_platform_version(platform_name, version, s3_bucket, s3_key, instance_profile, key_name, instance_type, vpc = None):
+def create_platform_version(
+        platform_name,
+        version,
+        s3_bucket,
+        s3_key,
+        instance_profile,
+        key_name,
+        instance_type,
+        vpc=None
+):
     kwargs = dict()
 
     if s3_bucket and s3_key:
@@ -152,14 +160,12 @@ def create_platform_version(platform_name, version, s3_bucket, s3_key, instance_
                 'Value': 'true'
             })
 
-    # Always enable healthd for the Platform Builder environment
     option_settings.append({
         'Namespace': namespaces.HEALTH_SYSTEM,
         'OptionName': option_names.SYSTEM_TYPE,
         'Value': 'enhanced'
     })
 
-    # Attach service role
     option_settings.append({
         'Namespace': namespaces.ENVIRONMENT,
         'OptionName': option_names.SERVICE_ROLE,
@@ -174,8 +180,17 @@ def create_platform_version(platform_name, version, s3_bucket, s3_key, instance_
                           **kwargs)
 
 
-def create_application_version(app_name, vers_label, descrip, s3_bucket,
-                               s3_key, process=False, repository=None, commit_id=None, build_configuration=None):
+def create_application_version(
+        app_name,
+        vers_label,
+        descrip,
+        s3_bucket,
+        s3_key,
+        process=False,
+        repository=None,
+        commit_id=None,
+        build_configuration=None
+):
     kwargs = dict()
     kwargs['Process'] = process
     if descrip is not None:
@@ -189,9 +204,11 @@ def create_application_version(app_name, vers_label, descrip, s3_bucket,
                                                 'SourceRepository': 'S3',
                                                 'SourceLocation': "{0}/{1}".format(s3_bucket, s3_key)}
     elif repository and commit_id:
-        kwargs['SourceBuildInformation'] = {'SourceType': 'Git',
-                                  'SourceRepository': 'CodeCommit',
-                                  'SourceLocation': "{0}/{1}".format(repository, commit_id)}
+        kwargs['SourceBuildInformation'] = {
+            'SourceType': 'Git',
+            'SourceRepository': 'CodeCommit',
+            'SourceLocation': "{0}/{1}".format(repository, commit_id)
+        }
         kwargs['Process'] = True
 
     if build_configuration is not None:
@@ -217,10 +234,8 @@ def create_environment(environment):
     kwargs = environment.convert_to_kwargs()
 
     if environment.database:
-        # need to know region for database string
         region = aws.get_region_name()
 
-        # Database is a dictionary
         kwargs['TemplateSpecification'] = {
             'TemplateSnippets': [
                 {'SnippetName': 'RdsExtensionEB',
@@ -233,7 +248,6 @@ def create_environment(environment):
 
     result = _make_api_call('create_environment', **kwargs)
 
-    # convert to object
     env = Environment.json_to_environment_object(result)
     request_id = result['ResponseMetadata']['RequestId']
     return env, request_id
@@ -249,7 +263,6 @@ def clone_environment(clone):
 
     result = _make_api_call('create_environment', **kwargs)
 
-    # convert to object
     environment = Environment.json_to_environment_object(result)
     request_id = result['ResponseMetadata']['RequestId']
     return environment, request_id
@@ -396,7 +409,8 @@ def get_application_versions(app_name, version_labels=None, max_records=None, ne
     if max_records:
         kwargs['MaxRecords'] = max_records
     if next_token:
-        time.sleep(0.1) # To avoid throttling we sleep for 100ms before requesting the next page
+        # To avoid throttling we sleep for 100ms before requesting the next page
+        time.sleep(0.1)
         kwargs['NextToken'] = next_token
     result = _make_api_call('describe_application_versions',
                             ApplicationName=app_name,
@@ -482,7 +496,14 @@ def get_all_environments():
     return Environment.json_to_environment_objects_array(result['Environments'])
 
 
-def get_environment(app_name=None, env_name=None, env_id=None, include_deleted=False, deleted_back_to=None, want_solution_stack=False):
+def get_environment(
+        app_name=None,
+        env_name=None,
+        env_id=None,
+        include_deleted=False,
+        deleted_back_to=None,
+        want_solution_stack=False
+):
     LOG.debug('Inside get_environment api wrapper')
 
     kwargs = {}
@@ -553,10 +574,8 @@ def get_environment_resources(env_name):
 def get_new_events(app_name, env_name, request_id,
                    last_event_time=None, version_label=None, platform_arn=None):
     LOG.debug('Inside get_new_events api wrapper')
-    # make call
+
     if last_event_time is not None:
-        # In python 2 time is a datetime, in 3 it is a string
-        ## Convert to string for compatibility
         time = last_event_time
         new_time = time + datetime.timedelta(0, 0, 1000)
     else:
@@ -712,15 +731,17 @@ def validate_template(app_name, template_name, platform=None):
     kwargs = {}
     if platform:
         if PlatformVersion.is_valid_arn(platform):
-            kwargs['TemplateSpecification'] = \
-                {'TemplateSource':
-                     {'PlatformArn': platform}}
+            kwargs['TemplateSpecification'] = {
+                'TemplateSource': {
+                    'PlatformArn': platform
+                }
+            }
         else:
-            kwargs['TemplateSpecification'] = \
-                {'TemplateSource':
-                    {'SolutionStackName': platform}}
-
-
+            kwargs['TemplateSpecification'] = {
+                'TemplateSource': {
+                    'SolutionStackName': platform
+                }
+            }
 
     result = _make_api_call('validate_configuration_settings',
                             ApplicationName=app_name,

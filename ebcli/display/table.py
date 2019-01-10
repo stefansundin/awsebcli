@@ -43,7 +43,6 @@ class Table(object):
         self.set_data(table_data)
         self.visible_rows = num_of_rows
         if self.vertical_offset > self.get_max_offset():
-            # Adjust for changing size of data
             self.vertical_offset = self.get_max_offset()
         self.first_column = min(self.screen.horizontal_offset + 1,
                                 len(self.columns) - 1)
@@ -59,7 +58,6 @@ class Table(object):
     MAX_DESCRIPTION = 100
 
     def draw_header_row(self):
-        # Print headers
         t = term.get_terminal()
         labels = [' ']
         width = self.width
@@ -68,15 +66,16 @@ class Table(object):
             column_size = column.size
             if column_size is None:
                 column_size = self.get_widest_data_length_in_column(self.columns[c]) + 2
-                # special case for Description column this should be the same for all description columns, allows very
-                #   large descriptions that we are able to scroll through.
+                # special case for Description column this should be the same for all
+                # description columns, allows very large descriptions that we are able
+                # to scroll through.
                 if column.name == 'Description' and column_size > self.MAX_DESCRIPTION:
                     column_size = self.MAX_DESCRIPTION
                 column.fit_size = column_size
             header = justify_and_trim(column.name, column_size, column.justify)
-            if (self.screen.sort_index and  # We are sorting
+            if (self.screen.sort_index and
                     self.screen.sort_index[1] == c and  # Sort column
-                    self.name == self.screen.sort_index[0] and # sort table
+                    self.name == self.screen.sort_index[0] and  # sort table
                     len(' '.join(labels)) < width):  # Column is on screen
                 format_string = '{n}{b}{u}{data}{n}{r}'
                 header = format_string.replace('{data}', header)
@@ -221,7 +220,7 @@ class Table(object):
     def get_row_id(self, row_index):
         try:
             row = self.data[row_index]
-        except IndexError as e:
+        except IndexError:
             raise IndexError('Can not access index:{}'.format(row_index))
         return row.get('InstanceId')
 

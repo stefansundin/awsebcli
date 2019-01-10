@@ -12,7 +12,6 @@
 # language governing permissions and limitations under the License.
 from datetime import datetime
 import locale
-locale.setlocale(locale.LC_ALL, 'C')
 
 from botocore.compat import six
 from cement.utils.misc import minimal_logger
@@ -23,6 +22,8 @@ from ebcli.display.data_poller import DataPoller
 from ebcli.display.screen import Screen
 from ebcli.lib import ec2, elasticbeanstalk, elb, elbv2
 from ebcli.resources import statics
+
+locale.setlocale(locale.LC_ALL, 'C')
 
 Queue = six.moves.queue.Queue
 LOG = minimal_logger(__name__)
@@ -96,8 +97,13 @@ class TraditionalHealthDataPoller(DataPoller):
             instance_states = elb.get_health_of_instances(load_balancer_name)
         else:
             load_balancer_arn = load_balancer_name
-            elbv2_target_groups = elbv2.get_target_groups_for_load_balancer(load_balancer_arn=load_balancer_arn)
-            target_group_arns = [target_group['TargetGroupArn'] for target_group in elbv2_target_groups]
+            elbv2_target_groups = elbv2.get_target_groups_for_load_balancer(
+                load_balancer_arn=load_balancer_arn
+            )
+            target_group_arns = [
+                target_group['TargetGroupArn']
+                for target_group in elbv2_target_groups
+            ]
             instance_states = elbv2.get_instance_healths_from_target_groups(target_group_arns)
 
         return instance_states
@@ -129,7 +135,6 @@ class TraditionalHealthScreen(Screen):
 
     def draw_banner_info_lines(self, lines, data):
         if lines > 2:
-            # Get instance health count
             term.echo_line('instances:',
                            io.bold(data.get('Total', 0)), 'Total,',
                            io.bold(data.get('InService', 0)), 'InService,',

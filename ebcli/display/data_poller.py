@@ -140,7 +140,6 @@ class DataPoller(object):
 
                     break
                 else:
-                    # Not a recoverable error, raise it
                     raise e
 
         self.data_queue.put({})
@@ -195,7 +194,7 @@ def collapse_instance_health_data(instances_health):
         instance['Cause'] = cause
 
         instance['InstanceType'] = i.get('InstanceType')
-        if i.get('AvailabilityZone'): #us-east-1a -> 1a
+        if i.get('AvailabilityZone'):
             try:
                 instance['AvailabilityZone'] = i.get('AvailabilityZone').rsplit('-', 1)[-1]
             except:
@@ -214,14 +213,16 @@ def collapse_instance_health_data(instances_health):
         instance['launched'] = utils.get_local_time_as_string(instance['LaunchedAt'])
         instance['running'] = format_time_since(instance['LaunchedAt'])
 
-        # Calculate requests per second
         duration = instance.get('Duration', 10)
         instance['requests'] = request_count / (duration * 1.0)
 
-        # Convert counts to percentages
         for key in {'Status_2xx', 'Status_3xx', 'Status_4xx', 'Status_5xx'}:
-            _convert_data_to_percentage(instance, key, request_count,
-                                       add_sort_column=True)
+            _convert_data_to_percentage(
+                instance,
+                key,
+                request_count,
+                add_sort_column=True
+            )
 
         # Add status sort index
         instance['status_sort'] = __get_health_sort_order(instance['HealthStatus'])
@@ -261,11 +262,9 @@ def format_time_since(timestamp):
 def _convert_data_to_percentage(data, index, total, add_sort_column=False):
     if total > 0:
         percent = (data.get(index, 0) / (total * 1.0)) * 100.0
-        # Now convert to string
         representation = format_float(percent, 1)
         data[index] = representation
 
-        # Convert back to float for sorting
         if add_sort_column:
             data[index + '_sort'] = float(representation)
 

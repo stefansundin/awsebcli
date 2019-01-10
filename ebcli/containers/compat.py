@@ -1,13 +1,24 @@
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
 import os
 import re
-import subprocess
 import sys
 from semantic_version import Version
 
 from cement.utils.misc import minimal_logger
 
 from ebcli.containers import commands
-from ebcli.core import io, fileoperations
+from ebcli.core import fileoperations
 from ebcli.lib import heuristics, utils
 from ebcli.resources.strings import strings
 from ebcli.objects.exceptions import CommandError
@@ -33,9 +44,6 @@ def supported_docker_installed():
     try:
         clean_version = remove_leading_zeros_from_version(commands.version())
         return Version(clean_version) >= Version(SUPPORTED_DOCKER_V)
-    # OSError = Not installed
-    # CommandError = docker versions less than 1.5 give exit code 1
-    # with 'docker --version'.
     except (OSError, CommandError):
         return False
 
@@ -83,12 +91,9 @@ def boot2docker_setup(env=os.environ):
     if not _is_boot2docker_running():
         _start_boot2docker()
 
-    # The rest of this function is really hacky and I need to fix it soon,
-    # but I'm not sure how to fix it yet. boot2docker hasn't a good api to use.
     boot2docker_certs_path = os.path.sep.join(['.boot2docker', 'certs',
                                                'boot2docker-vm'])
 
-    # If they are not set, set it to the defaults (in boot2docker shellinit)
     if DOCKER_HOST not in env:
         env[DOCKER_HOST] = 'tcp://{}:2376'.format(_boot2docker_ip())
 
@@ -129,4 +134,3 @@ def remove_leading_zeros_from_version(version_string):
     # 1. the start of string (major version) or following a '.'
     # 2. followed by some other digit
     return re.sub(r'((?<=\.)|^)[0]+(?=\d+)', r'', version_string)
-

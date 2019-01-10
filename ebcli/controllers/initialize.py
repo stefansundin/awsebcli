@@ -93,60 +93,16 @@ class InitController(AbstractBaseController):
             fileoperations.write_config_setting('global',
                                                 'no-verify-ssl', True)
 
-        if not default_env and not self.interactive:
-            # try to get default env from config file if exists
-            try:
-                default_env = commonops.get_current_branch_environment()
-            except NotInitializedError:
-                default_env = None
-        elif self.interactive:
-            default_env = None
+        default_env = set_default_env(default_env, self.interactive, self.force_non_interactive)
 
-        if self.force_non_interactive:
-            default_env = '/ni'
+        sstack, key = create_app_or_use_existing_one(self.app_name, default_env)
+        self.solution = self.solution or sstack
 
-        # Create application
-        sstack, key = commonops.pull_down_app_info(self.app_name, default_env=default_env) if elasticbeanstalk.application_exist(self.app_name) \
-            else commonops.create_app(self.app_name, default_env=default_env)
+        if fileoperations.env_yaml_exists():
+            self.solution = self.solution or extract_solution_stack_from_env_yaml()
+        self.solution = self.solution or solution_stack_ops.get_solution_stack_from_customer().platform_shorthand
 
-        if not self.solution:
-            self.solution = sstack
-
-        platform_set = False
-        if not self.solution or \
-                (self.interactive and not self.app.pargs.platform):
-            if fileoperations.env_yaml_exists():
-                env_yaml_platform = fileoperations.get_platform_from_env_yaml()
-                if env_yaml_platform:
-                    platform = solutionstack.SolutionStack(env_yaml_platform).platform_shorthand
-                    self.solution = platform
-                    platform_set = True
-
-            if not platform_set:
-                self.solution = solution_stack_ops.get_solution_stack_from_customer().platform_shorthand
-
-        # Select CodeBuild image if BuildSpec is present do not prompt or show if we are non-interactive
-        if fileoperations.build_spec_exists() and not self.force_non_interactive:
-            build_spec = fileoperations.get_build_configuration()
-            if build_spec is not None and build_spec.image is None:
-                LOG.debug("Buildspec file is present but image is does not exist. Attempting to fill best guess.")
-                platform_image = initializeops.get_codebuild_image_from_platform(self.solution)
-
-                # If the return is a dictionary then it must be a single image and we can use that automatically
-                if type(platform_image) is dict:
-                    io.echo('codebuild.latestplatform'.replace('{platform}', self.solution))
-                else:
-                    # Otherwise we have an array for images which we must prompt the customer to pick from
-                    io.echo(prompts['codebuild.getplatform'].replace('{platform}', self.solution))
-                    selected = utils.prompt_for_index_in_list(map(lambda image: image['description'], platform_image))
-                    platform_image = platform_image[selected]
-                    platform_image['name'] = utils.decode_bytes(platform_image['name'])
-
-                # Finally write the CodeBuild image back to the buildspec file
-                fileoperations.write_config_setting(fileoperations.buildspec_config_header,
-                                                    'Image',
-                                                    platform_image['name'],
-                                                    file=fileoperations.buildspec_name)
+        handle_buildspec_image(self.solution, self.force_non_interactive)
 
         # Setup code commit integration
         # Ensure that git is setup
@@ -158,14 +114,9 @@ class InitController(AbstractBaseController):
         except CommandError:
             source_control_setup = False
 
-        default_branch_exists = False
-        if gitops.git_management_enabled() and not self.interactive:
-            default_branch_exists = True
+        default_branch_exists = not not (gitops.git_management_enabled() and not self.interactive)
 
-        # Warn the customer if they picked a region that CodeCommit is not supported
-        codecommit_region_supported = codecommit.region_supported(self.region)
-
-        if source_location and not codecommit_region_supported:
+        if source_location and not codecommit.region_supported(self.region):
             io.log_warning(strings['codecommit.badregion'])
 
         # Prompt customer to opt into CodeCommit unless one of the follows holds:
@@ -315,13 +266,6 @@ class InitController(AbstractBaseController):
             commonops.upload_keypair_if_needed(keyname)
 
         return keyname
-
-    def complete_command(self, commands):
-        self.complete_region(commands)
-        #Note, completing solution stacks is only going to work
-        ## if they already have their keys set up with region
-        if commands[-1] in ['-s', '--solution']:
-            io.echo(*elasticbeanstalk.get_available_solution_stacks())
 
     def get_old_values(self):
         if fileoperations.old_eb_config_present() and \
@@ -600,6 +544,13 @@ def check_credentials(profile, given_profile, given_region, interactive, force_n
             return check_credentials(profile, given_profile, given_region, interactive, force_non_interactive)
 
 
+def create_app_or_use_existing_one(app_name, default_env):
+    if elasticbeanstalk.application_exist(app_name):
+        return commonops.pull_down_app_info(app_name, default_env=default_env)
+    else:
+        return commonops.create_app(app_name, default_env=default_env)
+
+
 def set_up_credentials(given_profile, given_region, interactive, force_non_interactive=False):
     if given_profile:
         # Profile already set at abstractController
@@ -616,6 +567,13 @@ def set_up_credentials(given_profile, given_region, interactive, force_non_inter
         fileoperations.write_config_setting('global', 'profile', profile)
 
     return region
+
+
+def extract_solution_stack_from_env_yaml():
+    env_yaml_platform = fileoperations.get_platform_from_env_yaml()
+    if env_yaml_platform:
+        platform = solutionstack.SolutionStack(env_yaml_platform).platform_shorthand
+        return platform
 
 
 def get_region_from_inputs(region):
@@ -647,6 +605,38 @@ def get_region(region_argument, interactive, force_non_interactive=False):
         region = result.name
 
     return region
+
+
+def handle_buildspec_image(solution, force_non_interactive):
+    if not fileoperations.build_spec_exists():
+        return
+
+    build_spec = fileoperations.get_build_configuration()
+    if not force_non_interactive and build_spec and build_spec.image is None:
+        LOG.debug("Buildspec file is present but image is does not exist. Attempting to fill best guess.")
+        platform_image = initializeops.get_codebuild_image_from_platform(solution)
+
+        if type(platform_image) is dict:
+            io.echo(strings['codebuild.latestplatform'].replace('{platform}', solution))
+        else:
+            io.echo(prompts['codebuild.getplatform'].replace('{platform}', solution))
+            selected = utils.prompt_for_index_in_list([image['description'] for image in platform_image][0])
+            platform_image = [image for image in platform_image if selected == image['description']][0]
+        fileoperations.write_buildspec_config_header('Image', platform_image['name'])
+
+
+def set_default_env(default_env, interactive, force_non_interactive):
+    if default_env:
+        return default_env
+
+    if force_non_interactive:
+        return '/ni'
+
+    if not interactive:
+        try:
+            return commonops.get_current_branch_environment()
+        except NotInitializedError:
+            pass
 
 
 def set_region_for_application(interactive, region, force_non_interactive):

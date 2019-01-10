@@ -17,8 +17,10 @@ import time
 from ebcli.core import io, fileoperations, hooks
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.lib import elasticbeanstalk, utils
-from ebcli.objects.exceptions import NotFoundError, AlreadyExistsError, \
+from ebcli.objects.exceptions import (
+    AlreadyExistsError,
     InvalidOptionsError
+)
 from ebcli.objects.solutionstack import SolutionStack
 from ebcli.objects.requests import CreateEnvironmentRequest
 from ebcli.objects.tier import Tier
@@ -32,6 +34,7 @@ from ebcli.operations import (
 )
 from ebcli.resources.strings import strings, prompts, flag_text
 from ebcli.resources.statics import elb_names
+
 
 class CreateController(AbstractBaseController):
     class Meta:
@@ -73,9 +76,15 @@ class CreateController(AbstractBaseController):
             (['--elb-type'], dict(help=flag_text['create.elb_type'])),
             (['-db', '--database'], dict(
                 action="store_true", help=flag_text['create.database'])),
-            ## Add addition hidden db commands
-            (['-db.user', '--database.username'], dict(dest='db_user',
-                                                   help=argparse.SUPPRESS)),
+
+            # Hidden RDS commands
+            (
+                ['-db.user', '--database.username'],
+                dict(
+                    dest='db_user',
+                    help=argparse.SUPPRESS
+                )
+            ),
             (['-db.pass', '--database.password'],
                 dict(dest='db_pass', help=argparse.SUPPRESS)),
             (['-db.i', '--database.instance'],
@@ -108,7 +117,6 @@ class CreateController(AbstractBaseController):
         ]
 
     def do_command(self):
-        # save command line args
         env_name = self.app.pargs.environment_name
         modules = self.app.pargs.modules
         if modules and len(modules) > 0:
@@ -135,7 +143,6 @@ class CreateController(AbstractBaseController):
         elb_type = self.app.pargs.elb_type
         source = self.app.pargs.source
         process = self.app.pargs.process
-        region = self.app.pargs.region
         interactive = False if env_name else True
 
         provided_env_name = env_name
@@ -179,7 +186,6 @@ class CreateController(AbstractBaseController):
         database = self.form_database_object()
         vpc = self.form_vpc_object(tier, single)
 
-        # avoid prematurely timing out in the CLI when an environment is launched with a RDS DB
         if not timeout and database:
             timeout = 15
 
@@ -214,21 +220,6 @@ class CreateController(AbstractBaseController):
                                timeout=timeout,
                                source=source)
 
-    def complete_command(self, commands):
-        app_name = fileoperations.get_application_name()
-
-        self.complete_region(commands)
-
-        # We only care about top command, because there are no positional
-        ## args for this command
-        cmd = commands[-1]
-        if cmd in ['-t', '--tier']:
-            io.echo(*Tier.get_all_tiers())
-        if cmd in ['-s', '--solution']:
-            io.echo(*elasticbeanstalk.get_available_solution_stacks())
-        if cmd in ['-vl', '--versionlabel']:
-            io.echo(*elasticbeanstalk.get_app_version_labels(app_name))
-
     def form_database_object(self):
         create_db = self.app.pargs.database
         username = self.app.pargs.db_user
@@ -238,7 +229,6 @@ class CreateController(AbstractBaseController):
         instance = self.app.pargs.db_instance
         version = self.app.pargs.db_version
 
-        # Do we want a database?
         if create_db or username or password or engine or size \
                 or instance or version:
             db_object = dict()
@@ -270,7 +260,6 @@ class CreateController(AbstractBaseController):
         database = self.app.pargs.database
 
         if vpc:
-            # Interactively ask for vpc settings
             io.echo()
             vpc_id = vpc_id or io.get_input(prompts['vpc.id'])
 
@@ -335,7 +324,6 @@ class CreateController(AbstractBaseController):
 
             io.echo('--- Creating application version for module: {0} ---'.format(module))
 
-            # Re-run hooks to get values from .elasticbeanstalk folders of modules
             hooks.set_region(None)
             hooks.set_ssl(None)
             hooks.set_profile(None)
@@ -550,7 +538,6 @@ def get_template_name(app_name, cfg):
     :return: normalized
     """
     if not cfg:
-        # See if a default template exists
         if not saved_configs.resolve_config_location('default'):
             return
         else:

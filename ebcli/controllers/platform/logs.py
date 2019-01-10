@@ -1,3 +1,15 @@
+# Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
 from ebcli.core import io
 
 from ebcli.core.abstractcontroller import AbstractBaseController
@@ -16,16 +28,27 @@ class GenericPlatformLogsController(AbstractBaseController):
         requires_directory_initialization = True
         description = strings['platformlogs.info']
         arguments = [
-            (['version'], dict(action='store', nargs='?', default=None, help=flag_text['platformlogs.version'])),
-            (['--stream'], dict(action='store_true', help=flag_text['logs.stream']))
+            (
+                ['version'],
+                dict(
+                    action='store',
+                    nargs='?',
+                    default=None,
+                    help=flag_text['platformlogs.version']
+                )
+            ),
+            (
+                ['--stream'],
+                dict(
+                    action='store_true',
+                    help=flag_text['logs.stream']
+                )
+            )
         ]
 
         @classmethod
         def clone(cls):
             return type('Meta', cls.__bases__, dict(cls.__dict__))
-
-    def do_command(self):
-        self.app.args.print_help()
 
     @classmethod
     def add_to_handler(cls, handler):
@@ -59,12 +82,10 @@ class GenericPlatformLogsController(AbstractBaseController):
                     platform_name,
                     version,
                     log_name="%s/%s" % (platform_name, version),
-                    # Packer is our only builder type at this point
                     formatter=platformops.PackerStreamFormatter())
             except NotFoundError:
                 raise NotFoundError('Unable to find logs in CloudWatch.')
         else:
-            # print with paginator
             paginate_cloudwatch_logs(platform_name, version)
 
 

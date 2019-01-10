@@ -18,12 +18,12 @@ from cement.utils.misc import minimal_logger
 from ebcli.core import io, hooks, fileoperations
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.lib import elasticbeanstalk, utils
-from ebcli.objects.exceptions import NoEnvironmentForBranchError, \
-    InvalidOptionsError
-from ebcli.operations import commonops, deployops, composeops, solution_stack_ops
+from ebcli.objects.exceptions import InvalidOptionsError
+from ebcli.operations import commonops, deployops, composeops
 from ebcli.resources.strings import strings, flag_text
 
 LOG = minimal_logger(__name__)
+
 
 class DeployController(AbstractBaseController):
     class Meta(AbstractBaseController.Meta):
@@ -71,26 +71,11 @@ class DeployController(AbstractBaseController):
         if self.version and (self.message or self.label):
             raise InvalidOptionsError(strings['deploy.invalidoptions'])
 
-        # ToDo add support for deploying to multiples?
-        # for arg in self.app.pargs.environment_name:
-        #     # deploy to every environment listed
-        #     ## Right now you can only list one
-
         process_app_versions = fileoperations.env_yaml_exists() or self.process
 
         deployops.deploy(self.app_name, self.env_name, self.version, self.label,
                          self.message, group_name=group_name, process_app_versions=process_app_versions,
                          staged=self.staged, timeout=self.timeout, source=self.source)
-
-    def complete_command(self, commands):
-        # TODO: edit this if we ever support multiple env deploys
-        super(DeployController, self).complete_command(commands)
-
-        ## versionlabels on --version
-        cmd = commands[-1]
-        if cmd in ['--version']:
-            app_name = fileoperations.get_application_name()
-            io.echo(*elasticbeanstalk.get_app_version_labels(app_name))
 
     def multiple_app_deploy(self):
         missing_env_yaml = []
@@ -107,8 +92,6 @@ class DeployController(AbstractBaseController):
 
             chdir(top_dir)
 
-        # We currently do not want to support multiple deploys when some of the
-        # modules do not contain env.yaml files
         if len(missing_env_yaml) > 0:
             module_list = ''
             for module_name in missing_env_yaml:
@@ -147,7 +130,6 @@ class DeployController(AbstractBaseController):
 
             io.echo('--- Creating application version for module: {0} ---'.format(module))
 
-            # Re-run hooks to get values from .elasticbeanstalk folders of apps
             hooks.set_region(None)
             hooks.set_ssl(None)
             hooks.set_profile(None)
@@ -173,7 +155,10 @@ class DeployController(AbstractBaseController):
             else:
                 io.echo(strings['deploy.noenvname'].replace('{module}', module))
 
-                stages_version_labels[group_name] = [v for v in stages_version_labels[group_name] if v != version_label]
+                stages_version_labels[group_name] = [
+                    v for v in stages_version_labels[group_name]
+                    if v != version_label
+                ]
 
             chdir(top_dir)
 

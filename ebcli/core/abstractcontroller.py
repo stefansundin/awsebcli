@@ -64,11 +64,20 @@ class AbstractBaseController(controller.CementBaseController):
         elif '--help' in sys.argv:
             pass
         else:
-            is_platform_workspace_only_command = cls.Meta.__dict__.get('is_platform_workspace_only_command')
-            if is_platform_workspace_only_command is True and Constants.WorkSpaceTypes.APPLICATION == workspace_type:
-                raise ApplicationWorkspaceNotSupportedError(strings['exit.applicationworkspacenotsupported'])
+            is_platform_workspace_only_command = cls.Meta.__dict__.get(
+                'is_platform_workspace_only_command'
+            )
+            if (
+                is_platform_workspace_only_command is True
+                and Constants.WorkSpaceTypes.APPLICATION == workspace_type
+            ):
+                raise ApplicationWorkspaceNotSupportedError(
+                    strings['exit.applicationworkspacenotsupported']
+                )
 
-            requires_directory_initialization = cls.Meta.__dict__.get('requires_directory_initialization')
+            requires_directory_initialization = cls.Meta.__dict__.get(
+                'requires_directory_initialization'
+            )
             if requires_directory_initialization is None:
                 requires_directory_initialization = False
             if requires_directory_initialization and not workspace_type:
@@ -89,9 +98,13 @@ class AbstractBaseController(controller.CementBaseController):
         workspace_type = fileoperations.get_workspace_type()
         if workspace_type != expected_type:
             if Constants.WorkSpaceTypes.PLATFORM == workspace_type:
-                raise PlatformWorkspaceNotSupportedError(strings['exit.platformworkspacenotsupported'])
+                raise PlatformWorkspaceNotSupportedError(
+                    strings['exit.platformworkspacenotsupported']
+                )
             if Constants.WorkSpaceTypes.APPLICATION == workspace_type:
-                raise ApplicationWorkspaceNotSupportedError(strings['exit.applicationworkspacenotsupported'])
+                raise ApplicationWorkspaceNotSupportedError(
+                    strings['exit.applicationworkspacenotsupported']
+                )
 
     def check_for_cli_update(self, version):
         label = self.Meta.label
@@ -104,10 +117,8 @@ class AbstractBaseController(controller.CementBaseController):
         return app_name
 
     def get_env_name(self, cmd_example=None, noerror=False, varname='environment_name'):
-        # Try to get env_name from args using varname, if not found, env_name is None here
         env_name = getattr(self.app.pargs, varname, None)
         if not env_name:
-            # If env name not provided, grab branch default
             env_name = commonops. \
                 get_current_branch_environment()
 
@@ -117,7 +128,6 @@ class AbstractBaseController(controller.CementBaseController):
             if Constants.WorkSpaceTypes.PLATFORM == workspace_type:
                 raise EBCLIException(strings['platform.nobuilderenv'])
 
-            # No default env, lets ask for one
             if noerror:
                 return None
 
@@ -132,21 +142,6 @@ class AbstractBaseController(controller.CementBaseController):
 
         return env_name
 
-    def complete_command(self, commands):
-        if not self.complete_region(commands):
-            if len(commands) == 1:  # They only have the main command so far
-                # lets complete for positional args
-                app_name = fileoperations.get_application_name()
-                io.echo(*elasticbeanstalk.get_environment_names(app_name))
-
-    def complete_region(self, commands):
-        # we only care about top command
-        cmd = commands[-1]
-        if cmd == '-r' or cmd == '--region':
-            io.echo(*[r.name for r in region.get_all_regions()])
-            return True
-        return False
-
     @classmethod
     def _add_to_handler(cls, handler):
         handler.register(cls)
@@ -158,6 +153,7 @@ class AbstractBaseController(controller.CementBaseController):
         except where <command> is "platform".
         """
         longest = 0
+
         def pad(label):
             padlength = longest - len(label) + 2
             padding = '   '
@@ -171,7 +167,6 @@ class AbstractBaseController(controller.CementBaseController):
 
         help_txt = ''
         for label in self._visible_commands:
-            # get longest command
             if len(label) > longest:
                 longest = len(label)
 
@@ -218,5 +213,4 @@ def cli_update_exists(current_version):
         latest = data['info']['version']
         return latest != current_version
     except:
-        # Ignore all exceptions. We want to fail silently.
         return False

@@ -10,11 +10,10 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-from ebcli.objects.platform import PlatformVersion
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.resources.strings import strings, flag_text, prompts
 from ebcli.core import io
-from ebcli.operations import cloneops, commonops, solution_stack_ops
+from ebcli.operations import cloneops, solution_stack_ops
 from ebcli.lib import utils, elasticbeanstalk
 from ebcli.controllers.create import get_cname_from_customer, get_and_validate_envars
 from ebcli.operations.createops import get_and_validate_tags
@@ -27,8 +26,7 @@ class CloneController(AbstractBaseController):
         label = 'clone'
         description = strings['clone.info']
         arguments = [
-            (['environment_name'], dict(action='store', nargs='?',
-                                            help=flag_text['clone.env'])),
+            (['environment_name'], dict(action='store', nargs='?', help=flag_text['clone.env'])),
             (['-n', '--clone_name'], dict(help=flag_text['clone.name'])),
             (['-c', '--cname'], dict(help=flag_text['clone.cname'])),
             (['--scale'], dict(type=int, help=flag_text['clone.scale'])),
@@ -37,8 +35,7 @@ class CloneController(AbstractBaseController):
             (['-nh', '--nohang'], dict(action='store_true',
                                        help=flag_text['clone.nohang'])),
             (['--timeout'], dict(type=int, help=flag_text['general.timeout'])),
-            (['--exact'], dict(action='store_true',
-                                help=flag_text['clone.exact'])),
+            (['--exact'], dict(action='store_true', help=flag_text['clone.exact'])),
         ]
         usage = 'eb clone <environment_name> (-n CLONE_NAME) [options ...]'
 
@@ -56,10 +53,7 @@ class CloneController(AbstractBaseController):
         provided_clone_name = clone_name is not None
         platform = None
 
-        # Get original environment
         env = elasticbeanstalk.get_environment(app_name=app_name, env_name=env_name)
-
-        # Get tier of original environment
         tier = env.tier
         if 'worker' in tier.name.lower() and cname:
             raise InvalidOptionsError(strings['worker.cname'])
@@ -69,11 +63,9 @@ class CloneController(AbstractBaseController):
                 raise AlreadyExistsError(strings['cname.unavailable'].
                                          replace('{cname}', cname))
 
-        # get tags
         tags = get_and_validate_tags(tags)
         envvars = get_and_validate_envars(envvars)
 
-        # Get env_name for clone
         if not clone_name:
             if len(env_name) < 16:
                 unique_name = env_name + '-clone'
@@ -96,14 +88,13 @@ class CloneController(AbstractBaseController):
                 cname = None
 
         if not exact:
-            if not provided_clone_name:  # interactive mode
+            if not provided_clone_name:
                 latest = solution_stack_ops.find_solution_stack_from_string(
                     env.platform.name,
                     find_newer=True
                 )
 
                 if latest != env.platform:
-                    # ask for latest or exact
                     io.echo()
                     io.echo(prompts['clone.latest'])
                     lst = ['Latest  (' + str(latest) + ')',
@@ -114,7 +105,6 @@ class CloneController(AbstractBaseController):
                 else:
                     platform = latest
             else:
-                # assume latest - get original platform
                 platform = solution_stack_ops.find_solution_stack_from_string(
                     env.platform.name,
                     find_newer=True
@@ -134,8 +124,8 @@ class CloneController(AbstractBaseController):
 
         clone_request.option_settings += envvars
 
-        cloneops.make_cloned_env(clone_request, nohang=nohang,
-                                   timeout=timeout)
-
-    def complete_command(self, commands):
-        super(CloneController, self).complete_command(commands)
+        cloneops.make_cloned_env(
+            clone_request,
+            nohang=nohang,
+            timeout=timeout
+        )

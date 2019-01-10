@@ -10,7 +10,6 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-from ebcli.core.ebglobals import Constants
 from ebcli.core import fileoperations, io
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.operations import platformops
@@ -23,10 +22,36 @@ class GenericPlatformDeleteController(AbstractBaseController):
         requires_directory_initialization = True
         description = strings['platformdeleteversion.info']
         arguments = [
-            (['version'], dict(action='store', help=flag_text['platformdeleteversion.version'], nargs='?', default=None)),
-            (['--cleanup'], dict(action='store_true', help=flag_text['platformdelete.cleanup'])),
-            (['--all-platforms'], dict(action='store_true', help=flag_text['platformdelete.allplatforms'])),
-            (['--force'], dict(action='store_true', help=flag_text['platformdelete.force']))
+            (
+                ['version'],
+                dict(
+                    action='store',
+                    help=flag_text['platformdeleteversion.version'],
+                    nargs='?',
+                    default=None
+                )
+            ),
+            (
+                ['--cleanup'],
+                dict(
+                    action='store_true',
+                    help=flag_text['platformdelete.cleanup']
+                )
+            ),
+            (
+                ['--all-platforms'],
+                dict(
+                    action='store_true',
+                    help=flag_text['platformdelete.allplatforms']
+                )
+            ),
+            (
+                ['--force'],
+                dict(
+                    action='store_true',
+                    help=flag_text['platformdelete.force']
+                )
+            )
         ]
         epilog = strings['platformdeleteversion.epilog']
 
@@ -39,7 +64,6 @@ class GenericPlatformDeleteController(AbstractBaseController):
         cleanup = self.app.pargs.cleanup
         force = self.app.pargs.force
 
-        # TODO: raise if 'version' and 'cleanup' are both specified
         if cleanup:
             self.cleanup_platforms()
         else:
@@ -57,7 +81,6 @@ class GenericPlatformDeleteController(AbstractBaseController):
         else:
             platform_name = fileoperations.get_platform_name()
 
-        # We clean up all failed platform versions
         failed_versions = sorted(
             platformops.list_custom_platform_versions(
                 platform_name=platform_name,

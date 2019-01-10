@@ -10,12 +10,8 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-
-import time
-
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.resources.strings import strings
-from ebcli.core import io
 from ebcli.operations import healthops
 
 
@@ -27,13 +23,17 @@ class HealthController(AbstractBaseController):
         arguments = AbstractBaseController.Meta.arguments + [
             (['--refresh'], dict(action='store_true', help='refresh')),
             (['--mono'], dict(action='store_true', help='no color')),
-            (['--view'], dict(default='split', choices=['split', 'status', 'request', 'cpu']))
+            (
+                ['--view'], dict(
+                    default='split',
+                    choices=['split', 'status', 'request', 'cpu']
+                )
+            )
         ]
 
     def do_command(self):
         app_name = self.get_app_name()
         env_name = self.get_env_name()
-        verbose = self.app.pargs.verbose
         refresh = self.app.pargs.refresh
         mono = self.app.pargs.mono
         view = self.app.pargs.view

@@ -18,7 +18,6 @@ from cement.utils.misc import minimal_logger
 from ebcli.lib import elasticbeanstalk, utils
 from ebcli.lib.aws import InvalidParameterValueError
 from ebcli.core import io
-from ebcli.objects.exceptions import TimeoutError
 from ebcli.resources.strings import strings, responses, prompts
 from ebcli.operations import commonops
 
@@ -28,7 +27,6 @@ LOG = minimal_logger(__name__)
 
 def make_cloned_env(clone_request, nohang=False, timeout=None):
     io.log_info('Cloning environment')
-    # get app version from environment
     env = elasticbeanstalk.get_environment(
         app_name=clone_request.app_name,
         env_name=clone_request.original_name
@@ -36,7 +34,6 @@ def make_cloned_env(clone_request, nohang=False, timeout=None):
     clone_request.version_label = env.version_label
     result, request_id = clone_env(clone_request)
 
-    # Print status of env
     result.print_env_details(
         io.echo,
         elasticbeanstalk.get_environments,
@@ -71,5 +68,3 @@ def clone_env(clone_request):
                     default_name=unique_name)
             else:
                 raise
-
-            # try again

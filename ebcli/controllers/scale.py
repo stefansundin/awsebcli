@@ -15,7 +15,7 @@ from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.resources.strings import strings, flag_text
 from ebcli.core import fileoperations, io
 from ebcli.lib import elasticbeanstalk
-from ebcli.operations import scaleops, commonops
+from ebcli.operations import scaleops
 
 
 class ScaleController(AbstractBaseController):
@@ -38,13 +38,4 @@ class ScaleController(AbstractBaseController):
         env_name = self.get_env_name(cmd_example='scale ' + str(number))
         confirm = self.app.pargs.force
 
-        scaleops.scale(app_name, env_name, number, confirm,
-                         timeout=timeout)
-
-    def complete_command(self, commands):
-        if not self.complete_region(commands):
-            # Environment names are the second positional argument in this
-            ## controller, so we only complete if its the second
-            if len(commands) == 2 and not commands[-1].startswith('-'):
-                app_name = fileoperations.get_application_name()
-                io.echo(*elasticbeanstalk.get_environment_names(app_name))
+        scaleops.scale(app_name, env_name, number, confirm, timeout=timeout)

@@ -26,22 +26,33 @@ LOG = minimal_logger(__name__)
 
 def stream_build_configuration_app_version_creation(app_name, app_version_label, build_spec):
     # Get the CloudWatch logs link
-    successfully_generated = wait_for_app_version_attribute(app_name, [app_version_label], timeout=1)
-    app_version_response = elasticbeanstalk.get_application_versions(app_name, version_labels=[app_version_label])['ApplicationVersions']
+    successfully_generated = wait_for_app_version_attribute(
+        app_name,
+        [app_version_label],
+        timeout=1
+    )
+    app_version_response = elasticbeanstalk.get_application_versions(
+        app_name,
+        version_labels=[app_version_label]
+    )['ApplicationVersions']
 
     build_response = codebuild.batch_get_builds([app_version_response[0]['BuildArn']]) \
         if successfully_generated else None
 
     codebuild_timeout = build_spec.timeout or 60
     if build_response is not None and 'logs' in build_response['builds'][0]:
-        log_link_text = strings['codebuild.buildlogs'].replace('{logs_link}',
-                                                               build_response['builds'][0]['logs']['deepLink'])
+        log_link_text = strings['codebuild.buildlogs'].replace(
+            '{logs_link}',
+            build_response['builds'][0]['logs']['deepLink']
+        )
         io.echo(log_link_text)
-        io.echo("NOTE: The CodeBuild timeout is set to {0} minutes, so this operation may take upto '{0}' minutes to complete.".format(codebuild_timeout))
+        io.echo(
+            "NOTE: The CodeBuild timeout is set to {0} minutes, so this "
+            "operation may take upto '{0}' minutes to complete.".format(codebuild_timeout)
+        )
     else:
         io.log_warning("Could not retrieve CloudWatch link for CodeBuild logs")
 
-    # Wait for the success events
     try:
         # Need to lazy-import `ebcli.lib.commonops` because `pytest` is unable to load it
         # at module load-time using Python 2.7 and Python 3.4
@@ -68,7 +79,6 @@ def stream_build_configuration_app_version_creation(app_name, app_version_label,
 
 def validate_build_config(build_config):
     if build_config.service_role is not None:
-        # Verify that the service role exists in the customers account
         from ebcli.lib.iam import get_roles
         role = build_config.service_role
         validated_role = None
@@ -82,12 +92,13 @@ def validate_build_config(build_config):
             raise ValidationError("Role '{0}' does not exist.".format(role))
         build_config.service_role = validated_role
     else:
-        io.log_warning("To learn more about creating a service role for CodeBuild, see Docs:"
-                       " https://docs-aws.amazon.com/codebuild/latest/userguide/setting-up.html#setting-up-service-role")
+        io.log_warning(
+            "To learn more about creating a service role for CodeBuild, see Docs:"
+            " https://docs-aws.amazon.com/codebuild/latest/userguide/"
+            "setting-up.html#setting-up-service-role"
+        )
         raise ValidationError("No service role specified in buildspec; this is a required argument.")
-        # Fail because the service role is required
     if build_config.image is None:
-        #  Fail because the image is required
         raise ValidationError("No image specified in buildspec; this is a required argument.")
 
 
@@ -100,10 +111,18 @@ def wait_for_app_version_attribute(app_name, version_labels, timeout=5):
     timediff = timedelta(minutes=timeout)
     while versions_to_check:
         if _timeout_reached(start_time, timediff):
-            io.log_error(strings['appversion.attribute.failed'].replace('{app_version}', ', '.join(version_labels)))
+            io.log_error(
+                strings['appversion.attribute.failed'].replace(
+                    '{app_version}',
+                    ', '.join(version_labels)
+                )
+            )
             return False
         io.LOG.debug('Retrieving app versions.')
-        app_versions = elasticbeanstalk.get_application_versions(app_name, versions_to_check)['ApplicationVersions']
+        app_versions = elasticbeanstalk.get_application_versions(
+            app_name,
+            versions_to_check
+        )['ApplicationVersions']
         for version in app_versions:
             if version.get('BuildArn'):
                 found[version['VersionLabel']] = True
@@ -111,7 +130,11 @@ def wait_for_app_version_attribute(app_name, version_labels, timeout=5):
                 versions_to_check.remove(version['VersionLabel'])
             elif version.get('Status') == 'FAILED':
                 failed[version['VersionLabel']] = True
-                io.log_error(strings['appversion.attribute.failed'].format(app_version=version['VersionLabel']))
+                io.log_error(
+                    strings['appversion.attribute.failed'].format(
+                        app_version=version['VersionLabel']
+                    )
+                )
                 versions_to_check.remove(version['VersionLabel'])
 
         if all(found.values()):

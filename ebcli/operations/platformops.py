@@ -42,9 +42,9 @@ from ebcli.resources.statics import namespaces, option_names
 from ebcli.resources.strings import strings, prompts
 
 
-VALID_PLATFORM_VERSION_FORMAT = re.compile('^\d+\.\d+\.\d+$')
-VALID_PLATFORM_SHORT_FORMAT = re.compile('^([^:/]+)/(\d+\.\d+\.\d+)$')
-VALID_PLATFORM_NAME_FORMAT = re.compile('^([^:/]+)$')
+VALID_PLATFORM_VERSION_FORMAT = re.compile(r'^\d+\.\d+\.\d+$')
+VALID_PLATFORM_SHORT_FORMAT = re.compile(r'^([^:/]+)/(\d+\.\d+\.\d+)$')
+VALID_PLATFORM_NAME_FORMAT = re.compile(r'^([^:/]+)$')
 
 LOG_MESSAGE_REGEX = re.compile(r'.* -- (.+)$')
 LOG_MESSAGE_SEVERITY_REGEX = re.compile(r'.*(INFO|ERROR|WARN) -- .*')
@@ -53,7 +53,9 @@ PACKER_OTHER_MESSAGE_DATA_REGEX = re.compile(r'Packer: \d+,([^,]*),.*')
 PACKER_OTHER_MESSAGE_TARGET_REGEX = re.compile(r'Packer: \d+,[^,]*,(.+)')
 OTHER_FORMAT_REGEX = re.compile(r'[^:]+: (.+)')
 
-PLATFORM_ARN = re.compile("^arn:aws(?:-[a-z\-0-9]+)?:elasticbeanstalk:(?:[a-z\-0-9]*):\d+:platform/([^/]+)/(\d+\.\d+\.\d+)$")
+PLATFORM_ARN = re.compile(
+    r'^arn:aws(?:-[a-z\-0-9]+)?:elasticbeanstalk:(?:[a-z\-0-9]*):\d+:platform/([^/]+)/(\d+\.\d+\.\d+)$'
+)
 
 
 class PackerStreamMessage(object):
@@ -144,7 +146,7 @@ def create_platform_version(
         minor_increment,
         patch_increment,
         instance_type,
-        vpc = None,
+        vpc=None,
         staged=False,
         timeout=None):
 
@@ -154,7 +156,12 @@ def create_platform_version(
     platform_name = fileoperations.get_platform_name()
     instance_profile = fileoperations.get_instance_profile(None)
     key_name = commonops.get_default_keyname()
-    version = version or _resolve_version_number(platform_name, major_increment, minor_increment, patch_increment)
+    version = version or _resolve_version_number(
+        platform_name,
+        major_increment,
+        minor_increment,
+        patch_increment
+    )
     source_control = SourceControl.get_source_control()
     io.log_warning(strings['sc.unstagedchanges']) if source_control.untracked_changes_exist() else None
     version_label = _resolve_version_label(source_control, staged)
@@ -246,7 +253,11 @@ def get_custom_platform_from_customer(custom_platforms):
 
 
 def get_environment_platform(app_name, env_name, want_solution_stack=False):
-    env = elasticbeanstalk.get_environment(app_name=app_name, env_name=env_name, want_solution_stack=want_solution_stack)
+    env = elasticbeanstalk.get_environment(
+        app_name=app_name,
+        env_name=env_name,
+        want_solution_stack=want_solution_stack
+    )
     return env.platform
 
 
@@ -398,7 +409,14 @@ def generate_version_to_arn_mappings(custom_platforms, specified_platform_name):
 
 
 def group_custom_platforms_by_platform_name(custom_platforms):
-    return sorted(set([PlatformVersion.get_platform_name(custom_platform) for custom_platform in custom_platforms]))
+    return sorted(
+        set(
+            [
+                PlatformVersion.get_platform_name(custom_platform)
+                for custom_platform in custom_platforms
+            ]
+        )
+    )
 
 
 def list_custom_platform_versions(
@@ -500,7 +518,6 @@ def set_platform(platform_name, platform_version=None, verify=True):
 
     io.echo(strings['platformset.version'])
 
-    # This could fail if the customer elected to create a new platform
     try:
         get_version_status(platform_version)
     except InvalidPlatformVersionError:
@@ -547,7 +564,6 @@ def stream_platform_logs(response, platform_name, version, timeout):
     arn = response['PlatformSummary']['PlatformArn']
     request_id = response['ResponseMetadata']['RequestId']
 
-    # Share streamer for platform events and builder events
     streamer = io.get_event_streamer()
 
     builder_events = threading.Thread(
@@ -555,7 +571,6 @@ def stream_platform_logs(response, platform_name, version, timeout):
         args=(platform_name, version, streamer, 5, None, PackerStreamFormatter()))
     builder_events.daemon = True
 
-    # Watch events from builder logs
     builder_events.start()
     commonops.wait_for_success_events(
         request_id,
@@ -594,7 +609,6 @@ def _enable_healthd():
         'value': 'enhanced'
     })
 
-    # Attach service role
     option_settings.append({
         'namespace': namespaces.ENVIRONMENT,
         'option_name': option_names.SERVICE_ROLE,
@@ -603,7 +617,7 @@ def _enable_healthd():
 
     fileoperations.ProjectRoot.traverse()
     with open('platform.yaml', 'r') as stream:
-        platform_yaml = yaml.load(stream)
+        platform_yaml = yaml.safe_load(stream)
 
     try:
         platform_options = platform_yaml['option_settings']
@@ -615,15 +629,16 @@ def _enable_healthd():
     for option in option_settings:
         found_option = False
         for platform_option in platform_options:
-            # Don't add an option if it was defined by the customer
-            if option['namespace'] == platform_option['namespace'] and option['option_name']== platform_option['option_name']:
+            if option['namespace'] == (
+                    platform_option['namespace']
+                    and option['option_name'] == platform_option['option_name']
+            ):
                 found_option = True
                 break
 
         if not found_option:
             options_to_inject.append(option)
 
-    # inject new options
     platform_options.extend(options_to_inject)
 
     platform_yaml['option_settings'] = list(platform_options)
@@ -643,9 +658,14 @@ def _generate_platform_yaml_copy():
 
 def _get_latest_version(platform_name=None, owner=None, ignored_states=None):
     if ignored_states is None:
-        ignored_states=['Deleting', 'Failed']
+        ignored_states = ['Deleting', 'Failed']
 
-    platforms = get_platforms(platform_name=platform_name, ignored_states=ignored_states, owner=owner, platform_version="latest")
+    platforms = get_platforms(
+        platform_name=platform_name,
+        ignored_states=ignored_states,
+        owner=owner,
+        platform_version="latest"
+    )
 
     try:
         return platforms[platform_name]
@@ -704,7 +724,6 @@ def _raise_if_version_format_is_invalid(version):
 def _resolve_version_label(source_control, staged):
     version_label = source_control.get_version_label()
     if staged:
-        # Make a unique version label
         timestamp = _datetime_now().strftime("%y%m%d_%H%M%S")
         version_label = version_label + '-stage-' + timestamp
     return version_label
@@ -716,7 +735,11 @@ def _resolve_version_number(
         minor_increment,
         patch_increment
 ):
-    version = _get_latest_version(platform_name=platform_name, owner=Constants.OWNED_BY_SELF, ignored_states=[])
+    version = _get_latest_version(
+        platform_name=platform_name,
+        owner=Constants.OWNED_BY_SELF,
+        ignored_states=[]
+    )
 
     if version is None:
         version = '1.0.0'
@@ -755,7 +778,6 @@ def _resolve_s3_bucket_and_key(
             staged
         )
     finally:
-        # Restore original platform.yaml
         move(platform_yaml_copy, 'platform.yaml')
 
     return s3_bucket, s3_key, file_path
@@ -800,7 +822,6 @@ def __formatted_platform_descriptions(platforms_list, show_status):
             }
         )
 
-    # Sort by name, then by version
     platform_tuples.sort(
         key=lambda platform_tuple: (
             PlatformVersion.get_platform_name(platform_tuple['PlatformArn']),

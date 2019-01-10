@@ -56,9 +56,6 @@ def init_terminal():
             terminal = Terminal()
 
         io.echo(terminal.clear())
-        def on_resize(sig, action):
-            pass
-        # signal.signal(signal.SIGWINCH, on_resize)
 
 
 def reset_terminal():
@@ -141,15 +138,13 @@ def term_is_live():
 def echo_on_line(line_num, *strings):
     init_terminal()
     if term_is_live():
-        # if line_num == 0:
-        #     io.echo(terminal.clear_eos())
         with terminal.location(x=0, y=line_num):
             io.echo(terminal.clear_eol())
         with terminal.location(x=0, y=line_num):
             io.echo(*strings)
-        # move_cursor(counter, 1)
     else:
         io.echo(*strings)
+
 
 def get_key(timeout=None):
     init_terminal()
@@ -185,9 +180,6 @@ class WindowsTerminal(object):
             size = shutil.get_terminal_size()
             return size.lines, size.columns
         except AttributeError:
-            # shutil doesn't have the method. Probably on an older version of python
-            # We will attempt to get the size ourselves
-            # We can use colorama's win32 wrapper
             screen = self._get_screen_info()
             window = screen.srWindow
             h = window.Bottom - window.Top
@@ -242,11 +234,9 @@ class WindowsTerminal(object):
         return ' ' * (size[1] - 1)
 
     def hide_cursor(self):
-        # toDo research, is this possible on windows?
         return ''
 
     def normal_cursor(self):
-        # todo linked to above
         return ''
 
     def location(self, x=0, y=0):
@@ -254,8 +244,6 @@ class WindowsTerminal(object):
         In order to use 'with' you need an object
          with an __enter__ and __exit__ method
         """
-        xy_tuple = self._get_cursor_pos()
-
         class TermLocation(object):
             def __init__(self, term):
                 self.term = term
@@ -307,10 +295,12 @@ class WindowsTerminal(object):
         if not key:
             return None
 
-        if key == '\x03': # Ctrl C
+        if key == '\x03':
+            # Ctrl C
             raise CaughtSignal(2, None)
 
-        elif key == '\x1c': # Ctrl \
+        elif key == '\x1c':
+            # Ctrl \
             sys.exit(1)
 
         elif key == '\xe0':
@@ -325,9 +315,9 @@ class WindowsTerminal(object):
             elif next_key == 'M':
                 return Val(name='KEY_RIGHT', code=261)
 
-        elif key == '\x1b': # Esc
+        elif key == '\x1b':
             return Val(name='KEY_ESCAPE', code=361)
-        elif key == '\x0d': # Enter
+        elif key == '\x0d':
             return Val(name='KEY_ENTER', code=362)
 
         else:
@@ -354,6 +344,7 @@ class Val(object):
 
     def __str__(self):
         return self.key or ''
+
     @property
     def is_sequence(self):
         return self.key is None

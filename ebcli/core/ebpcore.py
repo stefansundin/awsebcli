@@ -12,14 +12,12 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 from argparse import SUPPRESS
-import re
 import textwrap
 
 from cement.core import foundation, handler, hook
 from cement.utils.misc import init_defaults
 
 from ebcli.core import ebglobals, base, hooks
-from ebcli.core.completer import CompleterController
 import ebcli.core.ebrun as ebrun
 from ebcli.controllers.platform.list import EBPListController
 from ebcli.controllers.platform.use import EBPUseController
@@ -55,7 +53,8 @@ class EBPBaseController(base.EbBaseController):
             'show': 'Shows information about current platform.',
             'select': 'Selects a default platform.',
             'init': 'Initializes your directory with the EB CLI to create and manage Platforms.',
-            'list': 'In a platform workspace, lists versions of the custom platform associated with this workspace. Elsewhere, lists available platforms.'
+            'list': 'In a platform workspace, lists versions of the custom platform associated '
+                    'with this workspace. Elsewhere, lists available platforms.'
         }
         txt = self._meta.description
         for command_category in command_categories:
@@ -89,7 +88,6 @@ class EBP(foundation.CementApp):
     def setup(self):
         ebglobals.app = self
 
-        # Add hooks
         hook.register('post_argument_parsing', hooks.pre_run_hook)
 
         platform_controllers = [
@@ -105,12 +103,9 @@ class EBP(foundation.CementApp):
 
         [controller._add_to_handler(handler) for controller in platform_controllers]
 
-        # Add special controllers
-        handler.register(CompleterController)
-
         super(EBP, self).setup()
 
-        #Register global arguments
+        # Register global arguments
         self.add_arg('-v', '--verbose',
                      action='store_true', help=flag_text['base.verbose'])
         self.add_arg('--profile', help=flag_text['base.profile'])

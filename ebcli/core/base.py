@@ -20,6 +20,7 @@ from ebcli import __version__
 from ebcli.resources.strings import strings, flag_text
 from ebcli.core import io
 
+
 class EbBaseController(controller.CementBaseController):
     """
     This is the application base controller.
@@ -28,7 +29,6 @@ class EbBaseController(controller.CementBaseController):
     class Meta:
         label = 'base'
         description = strings['base.info']
-        # usage = eb {cmd} --option
         arguments = [
             (['--version'], dict(action='store_true',
                                  help=flag_text['base.version'])),
@@ -49,6 +49,7 @@ class EbBaseController(controller.CementBaseController):
         Prints the output of `eb --help`
         """
         longest = 0
+
         def pad(label):
             padlength = longest - len(label) + 2
             padding = '   '

@@ -42,8 +42,13 @@ def update_environment_with_config_file(env_name, cfg_name,
 
     if fileoperations.env_yaml_exists():
         io.echo(strings['config.envyamlexists'])
-    commonops.update_environment(env_name, None, nohang,
-                                  template=cfg_name, timeout=timeout)
+    commonops.update_environment(
+        env_name,
+        None,
+        nohang,
+        template=cfg_name,
+        timeout=timeout
+    )
 
 
 def update_environment_with_config_data(env_name, data,
@@ -51,8 +56,13 @@ def update_environment_with_config_data(env_name, data,
 
     if fileoperations.env_yaml_exists():
         io.echo(strings['config.envyamlexists'])
-    commonops.update_environment(env_name, None, nohang,
-                                  timeout=timeout, template_body=data)
+    commonops.update_environment(
+        env_name,
+        None,
+        nohang,
+        timeout=timeout,
+        template_body=data
+    )
 
 
 def download_config_from_s3(app_name, cfg_name):
@@ -78,13 +88,11 @@ def update_config(app_name, cfg_name):
     if config_location is None:
         raise NotFoundError('No local version of ' + cfg_name + ' found.')
 
-    # Update modified date
     fileoperations.write_config_setting('EnvironmentConfigurationMetadata',
                                         'DateModified',
                                         (('%f' % (time.time() * 1000)).split('.')[0]),
                                         file=config_location)
 
-    # Get just the name of the file
     filename = fileoperations.get_filename_without_extension(config_location)
 
     upload_config_file(app_name, filename, config_location)
@@ -121,14 +129,12 @@ def resolve_config_location(cfg_name):
      2. Public config files: .elasticbeanstalk/cfg_name.cfg.yml
     """
     slash = os.path.sep
-    # First, check to see path to file
     filename = os.path.expanduser(cfg_name)
     full_path = os.path.abspath(filename)
     if os.path.isfile(full_path):
         return full_path
 
-    if slash not in cfg_name:  # not a path, possibly a cfg name
-        # Check for file in elasticbeanstalk folder and child /saved_configs
+    if slash not in cfg_name:
         for folder in ('saved_configs' + os.path.sep, ''):
             folder = folder + cfg_name
             for extension in ('.cfg.yml', ''):
@@ -137,10 +143,9 @@ def resolve_config_location(cfg_name):
                     return fileoperations. \
                         get_eb_file_full_location(file_location)
 
-    else:  # cfg_name is a path to a file, but doesnt exist
+    else:
         raise NotFoundError('File ' + cfg_name + ' not found.')
 
-    # still haven't found file, could be reference to one in cloud
     return None
 
 
@@ -174,15 +179,16 @@ def get_configurations(app_name):
 
 
 def validate_config_file(app_name, cfg_name, platform):
-    # Get just the name of the file
     filename = fileoperations.get_filename_without_extension(cfg_name)
     try:
         result = elasticbeanstalk.validate_template(app_name, filename)
     except InvalidParameterValueError as e:
-        # Platform not in Saved config. Try again with default platform
         if e.message == responses['create.noplatform']:
-           result = elasticbeanstalk.validate_template(app_name, cfg_name,
-                                                       platform=platform)
+            result = elasticbeanstalk.validate_template(
+                app_name,
+                cfg_name,
+                platform=platform
+            )
         else:
             raise
 
@@ -192,8 +198,4 @@ def validate_config_file(app_name, cfg_name, platform):
         if severity == 'error':
             io.log_error(message)
         elif severity == 'warning':
-            # Ignore warnings. They are common on partial configurations
-            # and almost always completely irrelevant.
-            # io.log_warning(message)
             pass
-

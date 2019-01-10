@@ -28,8 +28,6 @@ class ListController(AbstractBaseController):
 
     def do_command(self):
         all_apps = self.app.pargs.all
-        # No need to get app name if all flag is present
-        ## By not getting it, we can do a list in a non-initialized location
         if not all_apps:
             app_name = self.get_app_name()
         else:
@@ -37,7 +35,3 @@ class ListController(AbstractBaseController):
         verbose = self.app.pargs.verbose
 
         listops.list_env_names(app_name, verbose, all_apps)
-
-    def complete_command(self, commands):
-        # We only care about regions
-        self.complete_region(commands)

@@ -33,20 +33,6 @@ class PlatformController(AbstractBaseController):
     def _add_to_handler(cls, handler):
         handler.register(cls)
 
-    def complete_command(self, commands):
-        workspace_type = fileoperations.get_workspace_type(Constants.WorkSpaceTypes.APPLICATION)
-
-        # We only care about regions
-        if len(commands) == 1:
-            # They only have the main command so far
-            # lets complete for next level command
-            if Constants.WorkSpaceTypes.APPLICATION == workspace_type:
-                io.echo(*['list', 'use', 'status'])
-            elif Constants.WorkSpaceTypes.PLATFORM == workspace_type:
-                io.echo(*['create', 'delete', 'events', 'init', 'list', 'status', 'use'])
-        elif len(commands) > 1:
-            pass
-
     @property
     def _help_text(self):
         """
@@ -60,8 +46,11 @@ class PlatformController(AbstractBaseController):
         command_help_overrides = {
             'platform show': 'Shows information about current platform.',
             'platform select': 'Selects a default platform.',
-            'platform init': 'Initializes your directory with the EB CLI to create and manage Platforms.',
-            'platform list': 'In a platform workspace, lists versions of the custom platform associated with this workspace. Elsewhere, lists available platforms.'
+            'platform init': 'Initializes your directory with the EB CLI to create and manage '
+                             'Platforms.',
+            'platform list': 'In a platform workspace, lists versions of the custom platform '
+                             'associated with this workspace. Elsewhere, lists available '
+                             'platforms.'
         }
         for command_category in command_categories:
             cmd_txt = ''

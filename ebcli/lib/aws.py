@@ -27,7 +27,6 @@ from cement.utils.misc import minimal_logger
 from ebcli import __version__
 from ebcli.lib.botopatch import apply_patches
 from ebcli.lib.utils import static_var
-from ebcli.core import fileoperations
 from ebcli.objects.exceptions import ServiceError, NotAuthorizedError, \
     CredentialsError, NoRegionError,  ValidationError, \
     InvalidProfileError, ConnectionError, AlreadyExistsError, NotFoundError, \
@@ -87,13 +86,13 @@ def get_profile():
     from ebcli.operations import commonops
     return commonops.get_default_profile(require_default=True)
 
+
 def set_region(region_name):
     global _region_name
     _region_name = region_name
 
     # Invalidate session and old clients
     _get_botocore_session.botocore_session = None
-    _api_clients = {}
 
 
 def set_endpoint_url(endpoint_url):
@@ -121,6 +120,7 @@ def _set_user_agent_for_session(session):
     session.user_agent_name = 'eb-cli'
     session.user_agent_version = __version__
 
+
 def _get_data_loader():
     # Creates a botocore data loader that loads custom data files
     # FIRST, creating a precedence for custom files.
@@ -129,6 +129,7 @@ def _get_data_loader():
 
     return Loader(extra_search_paths=[data_folder, Loader.BUILTIN_DATA_PATH],
                   include_default_search_paths=False)
+
 
 def _get_client(service_name):
     aws_access_key_id = _id
@@ -145,7 +146,6 @@ def _get_client(service_name):
         LOG.debug('Creating new Botocore Client for ' + str(service_name))
         client = session.create_client(service_name,
                                        endpoint_url=endpoint_url,
-                                       # region_name=_region_name,
                                        aws_access_key_id=aws_access_key_id,
                                        aws_secret_access_key=aws_secret_key,
                                        verify=_verify_ssl,
@@ -223,7 +223,8 @@ def make_api_call(service_name, operation_name, **operation_options):
             LOG.debug('Botocore could not parse response received')
             if attempt > max_attempts:
                 raise MaxRetriesError(
-                    'Max retries exceeded for ResponseParserErrors' + os.linesep.join(aggregated_error_message)
+                    'Max retries exceeded for ResponseParserErrors'
+                    + os.linesep.join(aggregated_error_message)
                 )
 
             aggregated_error_message.insert(attempt, str(e))
@@ -239,7 +240,7 @@ def make_api_call(service_name, operation_name, **operation_options):
                 botocore.exceptions.ParamValidationError) as e:
             raise ValidationError(str(e))
 
-        except botocore.exceptions.BotoCoreError as e:
+        except botocore.exceptions.BotoCoreError:
             LOG.error('Botocore Error')
             raise
 
@@ -264,7 +265,6 @@ def _handle_response_code(response_data, attempt, aggregated_error_message):
     except KeyError:
         message = ""
     if status == 400:
-        # Convert to correct 400 error
         error = _get_400_error(response_data, message)
         if isinstance(error, ThrottlingError):
             LOG.debug('Received throttling error')
@@ -291,7 +291,11 @@ def _handle_response_code(response_data, attempt, aggregated_error_message):
         raise AlreadyExistsError(message)
     elif status in (500, 503, 504):
         LOG.debug('Received 5XX error')
-        retry_failure_message = 'Received 5XX error during attempt #{0}\n   {1}\n'.format(str(attempt), message)
+        retry_failure_message = \
+            'Received 5XX error during attempt #{0}\n   {1}\n'.format(
+                str(attempt),
+                message
+            )
 
         aggregated_error_message.insert(attempt, retry_failure_message)
 
@@ -351,8 +355,8 @@ def _get_400_error(response_data, message):
         ]
         return TooManyConfigurationTemplatesException(' '.join(message))
     else:
-        # Not tracking this error
         return ServiceError(message, code=code)
+
 
 def _handle_500_error(aggregated_error_message):
     raise MaxRetriesError('Max retries exceeded for '

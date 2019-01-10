@@ -16,7 +16,6 @@ import warnings
 import getpass
 import sys
 import logging
-import signal
 
 import colorama
 import pydoc
@@ -138,16 +137,11 @@ def log_error(message):
 
 
 def get_input(output, default=None):
-    # importing readline module allows user to use bash commands
-    ## such as Ctrl+A etc.
-    ## Only works on non windows
     try:
         import readline
     except ImportError:
-        # oh well, we tried
         pass
 
-    # Trim spaces
     output = next(_convert_to_strings([output]))
     result = _get_input(output)
 
@@ -159,7 +153,6 @@ def _get_input(output):
 
 
 def echo_with_pager(output):
-    # pydoc.pager handles pipes and everything
     pydoc.pager(output)
 
 
@@ -191,16 +184,15 @@ def prompt_for_environment_name(default_name='myEnv',
       It cannot start or end with a hyphen.
     """
     constraint_pattern = '^[a-z0-9][a-z0-9-]{2,38}[a-z0-9]$'
-    #  Edit default name to fit standards.
 
     if not re.match(constraint_pattern, default_name):
-        if not re.match('^[a-zA-Z0-9].*', default_name):  # begins correctly
+        if not re.match('^[a-zA-Z0-9].*', default_name):
             default_name = 'eb-' + default_name
         default_name = default_name.replace('_', '-')
         default_name = re.sub('[^a-z0-9A-Z-]', '', default_name)
         if len(default_name) > 40:
             default_name = default_name[:39]
-        if not re.match('.*[a-zA-Z0-9]$', default_name):  # end correctly
+        if not re.match('.*[a-zA-Z0-9]$', default_name):
             default_name += '0'
 
     while True:
@@ -236,10 +228,6 @@ def validate_action(output, expected_input):
 
 
 def prompt_for_cname(default=None):
-    # Validate cname: spec says:
-    # Constraint: Must be from 4 to 40 characters in length.
-    # The name can contain only letters, numbers, and hyphens.
-    # It cannot start or end with a hyphen.
     while True:
         echo('Enter DNS CNAME prefix')
         if default:
@@ -294,8 +282,10 @@ def get_boolean_response(text=None):
         string = '(Y/n)'
     response = get_input(string, default='y').lower()
     while response not in ('y', 'n', 'yes', 'no'):
-        echo(strings['prompt.invalid'],
-                             strings['prompt.yes-or-no'])
+        echo(
+            strings['prompt.invalid'],
+            strings['prompt.yes-or-no']
+        )
         response = prompt('Y/n', default='y').lower()
 
     if response in ('y', 'yes'):
@@ -338,7 +328,7 @@ class EventStreamer(object):
          Removes the self.prompt from the screen
         """
         if self.eventcount < 1:
-            return  # Nothing to clean up
+            return
         length = len(self.prompt) + 3  # Cover up "^C" character as well
         print_('\r'.ljust(length))
 

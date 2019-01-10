@@ -24,7 +24,6 @@ def deploy(app_name, env_name, version, label, message, group_name=None,
            process_app_versions=False, staged=False, timeout=5, source=None):
     region_name = aws.get_region_name()
 
-    # Parse and get Build Configuration from BuildSpec if it exists
     build_config = None
     if fileoperations.build_spec_exists() and version is None:
         build_config = fileoperations.get_build_configuration()
@@ -36,7 +35,13 @@ def deploy(app_name, env_name, version, label, message, group_name=None,
         app_version_label = version
     elif source is not None:
         app_version_label = commonops.create_app_version_from_source(
-            app_name, source, process=process_app_versions, label=label, message=message, build_config=build_config)
+            app_name,
+            source,
+            process=process_app_versions,
+            label=label,
+            message=message,
+            build_config=build_config
+        )
         io.echo("Starting environment deployment via specified source")
         process_app_versions = True
     elif gitops.git_management_enabled() and not staged:
@@ -45,12 +50,18 @@ def deploy(app_name, env_name, version, label, message, group_name=None,
         io.echo("Starting environment deployment via CodeCommit")
         process_app_versions = True
     else:
-        # Create app version
         app_version_label = commonops.create_app_version(
-            app_name, process=process_app_versions, label=label, message=message, staged=staged, build_config=build_config)
+            app_name,
+            process=process_app_versions,
+            label=label,
+            message=message,
+            staged=staged,
+            build_config=build_config
+        )
 
     if build_config is not None:
-        buildspecops.stream_build_configuration_app_version_creation(app_name, app_version_label, build_config)
+        buildspecops.stream_build_configuration_app_version_creation(
+            app_name, app_version_label, build_config)
     elif process_app_versions is True:
         success = commonops.wait_for_processed_app_versions(
             app_name,
@@ -60,7 +71,6 @@ def deploy(app_name, env_name, version, label, message, group_name=None,
         if not success:
             return
 
-    # swap env to new app version
     request_id = elasticbeanstalk.update_env_application_version(
         env_name, app_version_label, group_name)
 

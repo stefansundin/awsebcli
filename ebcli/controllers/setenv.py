@@ -10,12 +10,11 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.resources.strings import strings, flag_text
 from ebcli.core import fileoperations, io
 from ebcli.lib import elasticbeanstalk
-from ebcli.operations import envvarops, commonops
+from ebcli.operations import envvarops
 
 
 class SetEnvController(AbstractBaseController):
@@ -24,11 +23,29 @@ class SetEnvController(AbstractBaseController):
         description = strings['setenv.info']
         usage = 'eb setenv [VAR_NAME=KEY ...] [-e environment] [options ...]'
         arguments = [
-            (['varKey'], dict(action='store', nargs='+',
-                              default=[], help=flag_text['setenv.vars'])),
-            (['-e', '--environment'], dict(dest='environment_name',
-                                        help=flag_text['setenv.env'])),
-            (['--timeout'], dict(type=int, help=flag_text['general.timeout'])),
+            (
+                ['varKey'],
+                dict(
+                    action='store',
+                    nargs='+',
+                    default=[],
+                    help=flag_text['setenv.vars']
+                )
+            ),
+            (
+                ['-e', '--environment'],
+                dict(
+                    dest='environment_name',
+                    help=flag_text['setenv.env']
+                )
+            ),
+            (
+                ['--timeout'],
+                dict(
+                    type=int,
+                    help=flag_text['general.timeout']
+                )
+            ),
         ]
         epilog = strings['setenv.epilog']
 
@@ -39,9 +56,3 @@ class SetEnvController(AbstractBaseController):
         timeout = self.app.pargs.timeout
 
         envvarops.setenv(app_name, env_name, var_list, timeout)
-
-    def complete_command(self, commands):
-        self.complete_region(commands)
-        if commands[-1] in ['-e', '--environment']:
-            app_name = fileoperations.get_application_name()
-            io.echo(*elasticbeanstalk.get_environment_names(app_name))
