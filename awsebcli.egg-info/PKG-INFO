@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: awsebcli
-Version: 3.14.10
+Version: 3.14.11
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -246,6 +246,13 @@ Description: ======
         =========
         Changelog
         =========
+        -------------------
+        3.14.11 (2019-02-07)
+        -------------------
+        - Fixed behaviour of `eb` commands whereby error events were being classified as successful
+        - Fixed bug that rejected `--profile` argument in favor of environment variables representing credentials
+        - Fixed bug that caused `eb create/deploy` to abort following failure to delete temporary application versions directory
+        
         -------------------
         3.14.10 (2019-01-21)
         -------------------

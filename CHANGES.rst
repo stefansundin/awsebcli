@@ -2,6 +2,13 @@
 Changelog
 =========
 -------------------
+3.14.11 (2019-02-07)
+-------------------
+- Fixed behaviour of `eb` commands whereby error events were being classified as successful
+- Fixed bug that rejected `--profile` argument in favor of environment variables representing credentials
+- Fixed bug that caused `eb create/deploy` to abort following failure to delete temporary application versions directory
+
+-------------------
 3.14.10 (2019-01-21)
 -------------------
 - Introduced direct dependency on `requests>=2.20.1,<2.21`
