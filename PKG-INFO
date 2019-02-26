@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: awsebcli
-Version: 3.14.12
+Version: 3.14.13
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -246,6 +246,11 @@ Description: ======
         =========
         Changelog
         =========
+        --------------------
+        3.14.13 (2019-02-22)
+        --------------------
+        - Fix Python 2.7 EBCLI breakage
+        
         --------------------
         3.14.12 (2019-02-22)
         --------------------
