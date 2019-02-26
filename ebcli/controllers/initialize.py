@@ -10,20 +10,18 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
-
-import sys
 import os.path
 
 from cement.utils.misc import minimal_logger
 
 from ebcli.core import fileoperations, io
 from ebcli.core.abstractcontroller import AbstractBaseController
+from ebcli.core.ebglobals import Constants
 from ebcli.lib import utils, elasticbeanstalk, codecommit, aws
 from ebcli.objects.sourcecontrol import SourceControl
-from ebcli.objects import solutionstack, region as regions
-from ebcli.objects.platform import PlatformVersion
+from ebcli.objects import solutionstack
+
 from ebcli.objects.exceptions import(
-    CommandError,
     InvalidProfileError,
     NoRegionError,
     NotInitializedError,
@@ -60,315 +58,116 @@ class InitController(AbstractBaseController):
         epilog = strings['init.epilog']
 
     def do_command(self):
-        # get arguments
-        self.interactive = self.app.pargs.interactive
-        self.region = self.app.pargs.region
-        self.noverify = self.app.pargs.no_verify_ssl
-        self.force_non_interactive = False
+        commonops.raise_if_inside_platform_workspace()
 
-        # Determine if the customer is avoiding interactive mode by setting the platform flag
-        if self.app.pargs.platform:
-            self.force_non_interactive = True
+        interactive = self.app.pargs.interactive
+        region_name = self.app.pargs.region
+        noverify = self.app.pargs.no_verify_ssl
+        keyname = self.app.pargs.keyname
+        profile = self.app.pargs.profile
+        platform = self.app.pargs.platform
+        source = self.app.pargs.source
+        app_name = self.app.pargs.application_name
+        modules = self.app.pargs.modules
+        force_non_interactive = customer_is_avoiding_non_interactive_flow(platform)
 
         # The user specifies directories to initialize
-        self.modules = self.app.pargs.modules
-        if self.modules and len(self.modules) > 0:
-            self.initialize_multiple_directories()
+        if modules and len(modules) > 0:
+            self.initialize_multiple_directories(
+                modules,
+                region_name,
+                interactive,
+                force_non_interactive,
+                keyname,
+                profile,
+                noverify,
+                platform
+            )
             return
 
-        source_location, branch, repository = None, None, None
-        if self.app.pargs.source:
-            source_location, repository, branch = utils.parse_source(self.app.pargs.source)
-
-        default_env = self.get_old_values()
         fileoperations.touch_config_folder()
+        region_name = commonops.set_region_for_application(interactive, region_name, force_non_interactive)
+        commonops.set_up_credentials(profile, region_name, interactive)
+        app_name = get_app_name(app_name, interactive, force_non_interactive)
+        default_env = set_default_env(interactive, force_non_interactive)
+        sstack, keyname_of_existing_application = create_app_or_use_existing_one(app_name, default_env)
+        platform = get_solution_stack(platform, sstack, interactive)
 
-        self.region = set_region_for_application(self.interactive, self.region, self.force_non_interactive)
+        handle_buildspec_image(platform, force_non_interactive)
 
-        self.region = set_up_credentials(self.app.pargs.profile, self.region, self.interactive)
-
-        self.solution = self.get_solution_stack()
-        self.app_name = self.get_app_name()
-        if self.noverify:
-            fileoperations.write_config_setting('global',
-                                                'no-verify-ssl', True)
-
-        default_env = set_default_env(default_env, self.interactive, self.force_non_interactive)
-
-        sstack, key = create_app_or_use_existing_one(self.app_name, default_env)
-        self.solution = self.solution or sstack
-
-        if fileoperations.env_yaml_exists():
-            self.solution = self.solution or extract_solution_stack_from_env_yaml()
-        self.solution = self.solution or solution_stack_ops.get_solution_stack_from_customer().platform_shorthand
-
-        handle_buildspec_image(self.solution, self.force_non_interactive)
-
-        # Setup code commit integration
-        # Ensure that git is setup
-        source_control = SourceControl.get_source_control()
-        try:
-            source_control_setup = source_control.is_setup()
-            if source_control_setup is None:
-                source_control_setup = False
-        except CommandError:
-            source_control_setup = False
-
-        default_branch_exists = not not (gitops.git_management_enabled() and not self.interactive)
-
-        if source_location and not codecommit.region_supported(self.region):
-            io.log_warning(strings['codecommit.badregion'])
-
-        # Prompt customer to opt into CodeCommit unless one of the follows holds:
-        if self.force_non_interactive:
-            prompt_codecommit = False
-        elif not codecommit.region_supported(self.region):
-            prompt_codecommit = False
-        elif source_location and source_location.lower() != 'codecommit':
-            # Do not prompt if customer has already specified a code source to
-            # associate the EB workspace with
-            prompt_codecommit = False
-        elif default_branch_exists:
-            # Do not prompt if customer has already configured the EB application
-            # in the present working directory with Git
-            prompt_codecommit = False
-        elif not source_control_setup:
-            if source_location:
-                io.echo(strings['codecommit.nosc'])
-            prompt_codecommit = False
-        else:
-            prompt_codecommit = True
-
-        # Prompt for interactive CodeCommit
+        prompt_codecommit = should_prompt_customer_to_opt_into_codecommit(
+            force_non_interactive,
+            region_name,
+            source
+        )
+        repository, branch = None, None
         if prompt_codecommit:
-            try:
-                if not source_location:
-                    io.validate_action(prompts['codecommit.usecc'], "y")
-
-                # Setup git config settings for code commit credentials
-                source_control.setup_codecommit_cred_config()
-
-                # Get user specified repository
-                remote_url = None
-                if repository is None:
-                    repository = get_repository_interactive()
-                else:
-                    try:
-                        setup_codecommit_remote_repo(repository, source_control)
-                    except ServiceError as ex:
-                        if source_location:
-                            create_codecommit_repository(repository)
-                            setup_codecommit_remote_repo(repository, source_control)
-                        else:
-                            io.log_error(strings['codecommit.norepo'])
-                            raise ex
-
-                # Get user specified branch
-                if branch is None:
-                    branch = get_branch_interactive(repository)
-                else:
-                    try:
-                        codecommit.get_branch(repository, branch)
-                    except ServiceError as ex:
-                        if source_location:
-                            create_codecommit_branch(source_control, branch)
-                        else:
-                            io.log_error(strings['codecommit.nobranch'])
-                            raise ex
-                    source_control.setup_existing_codecommit_branch(branch, remote_url)
-
-            except ValidationError:
-                LOG.debug("Denied option to use CodeCommit, continuing initialization")
-
-        # Initialize the whole setup
-        initializeops.setup(self.app_name, self.region, self.solution, dir_path=None, repository=repository, branch=branch)
-
-        if 'IIS' not in self.solution:
-            self.keyname = self.get_keyname(default=key)
-
-            if self.keyname == -1:
-                self.keyname = None
-
-            fileoperations.write_config_setting('global', 'default_ec2_keyname',
-                                                self.keyname)
-
-        # Default to including git submodules when creating zip files through `eb create`/`eb deploy`.
+            repository, branch = configure_codecommit(source)
+        initializeops.setup(app_name, region_name, platform, dir_path=None, repository=repository, branch=branch)
+        configure_keyname(platform, keyname, keyname_of_existing_application, interactive, force_non_interactive)
         fileoperations.write_config_setting('global', 'include_git_submodules', True)
+        if noverify:
+            fileoperations.write_config_setting('global', 'no-verify-ssl', True)
 
-    def get_app_name(self):
-        # Get app name from command line arguments
-        app_name = self.app.pargs.application_name
-
-        # Get app name from config file, if exists
-        if not app_name:
-            try:
-                app_name = fileoperations.get_application_name(default=None)
-            except NotInitializedError:
-                app_name = None
-
-        if not app_name and self.force_non_interactive:
-            # Choose defaults
-            app_name = fileoperations.get_current_directory_name()
-
-        # Ask for app name
-        if not app_name or \
-                (self.interactive and not self.app.pargs.application_name):
-            app_name = _get_application_name_interactive()
-
-        if sys.version_info[0] < 3 and isinstance(app_name, unicode):
-            try:
-                app_name.encode('utf8').encode('utf8')
-                app_name = app_name.encode('utf8')
-            except UnicodeDecodeError:
-                pass
-
-        return app_name
-
-    def get_solution_stack(self):
-        # Get solution stack from command line arguments
-        solution_string = self.app.pargs.platform
-
-        # Get solution stack from config file, if exists
-        if not solution_string:
-            try:
-                solution_string = solution_stack_ops.get_default_solution_stack()
-            except NotInitializedError:
-                solution_string = None
-
-        # Validate that the platform exists
-        if solution_string:
-            solution_stack_ops.find_solution_stack_from_string(solution_string)
-
-        return solution_string
-
-    def get_keyname(self, default=None):
-        keyname = self.app.pargs.keyname
-
-        if not keyname:
-            keyname = default
-
-        # Get keyname from config file, if exists
-        if not keyname:
-            try:
-                keyname = commonops.get_default_keyname()
-            except NotInitializedError:
-                keyname = None
-
-        if self.force_non_interactive and not self.interactive:
-            return keyname
-
-        if keyname is None or \
-                (self.interactive and not self.app.pargs.keyname):
-            # Prompt for one
-            keyname = sshops.prompt_for_ec2_keyname()
-
-        elif keyname != -1:
-            commonops.upload_keypair_if_needed(keyname)
-
-        return keyname
-
-    def get_old_values(self):
-        if fileoperations.old_eb_config_present() and \
-                not fileoperations.config_file_present():
-            old_values = fileoperations.get_values_from_old_eb()
-            region = old_values['region']
-            access_id = old_values['access_id']
-            secret_key = old_values['secret_key']
-            solution_stack = old_values['platform']
-            app_name = old_values['app_name']
-            default_env = old_values['default_env']
-
-            io.echo(strings['init.getvarsfromoldeb'])
-            if self.region is None:
-                self.region = region
-            if not self.app.pargs.application_name:
-                self.app.pargs.application_name = app_name
-            if self.app.pargs.platform is None:
-                self.app.pargs.platform = solution_stack
-
-            initializeops.setup_credentials(access_id=access_id,
-                                         secret_key=secret_key)
-            return default_env
-
-        return None
-
-    def initialize_multiple_directories(self):
+    def initialize_multiple_directories(
+            self,
+            modules,
+            region,
+            interactive,
+            force_non_interactive,
+            keyname,
+            profile,
+            noverify,
+            platform
+    ):
         application_created = False
-        self.app_name = None
+        app_name = None
         cwd = os.getcwd()
-        for module in self.modules:
+        for module in modules:
             if os.path.exists(module) and os.path.isdir(module):
                 os.chdir(module)
                 fileoperations.touch_config_folder()
 
                 # Region should be set once for all modules
-                if not self.region:
-                    if self.interactive:
-                        self.region = get_region(self.region, self.interactive, self.force_non_interactive)
-                    else:
-                        self.region = get_region_from_inputs(self.app.pargs.region)
-                    aws.set_region(self.region)
-
-                self.region = set_up_credentials(self.app.pargs.profile, self.region, self.interactive)
-
-                solution = self.get_solution_stack()
+                region = region or commonops.set_region_for_application(interactive, region, force_non_interactive)
+                commonops.set_up_credentials(profile, region, interactive)
 
                 # App name should be set once for all modules
-                if not self.app_name:
+                if not app_name:
                     # Switching back to the root dir will suggest the root dir name
                     # as the application name
                     os.chdir(cwd)
-                    self.app_name = self.get_app_name()
+                    app_name = get_app_name(None, interactive, force_non_interactive)
                     os.chdir(module)
 
-                if self.noverify:
-                    fileoperations.write_config_setting('global',
-                                                        'no-verify-ssl', True)
+                if noverify:
+                    fileoperations.write_config_setting('global', 'no-verify-ssl', True)
 
-                default_env = None
-
-                if self.force_non_interactive:
-                    default_env = '/ni'
+                default_env = '/ni' if force_non_interactive else None
 
                 if not application_created:
-                    sstack, key = commonops.create_app(self.app_name,
-                                                       default_env=default_env)
+                    sstack, keyname_of_existing_application = commonops.create_app(
+                        app_name,
+                        default_env=default_env
+                    )
                     application_created = True
                 else:
-                    sstack, key = commonops.pull_down_app_info(self.app_name,
-                                                               default_env=default_env)
-
+                    sstack, keyname_of_existing_application = commonops.pull_down_app_info(
+                        app_name,
+                        default_env=default_env
+                    )
+                solution = get_solution_stack(platform, sstack, interactive)
                 io.echo('\n--- Configuring module: {0} ---'.format(module))
 
-                if not solution:
-                    solution = sstack
+                solution = solution or sstack
 
-                platform_set = False
-                # TODO: Do not require a solution stack if one has already been set by this point
-                if not solution or \
-                        (self.interactive and not self.app.pargs.platform):
-                    if fileoperations.env_yaml_exists():
-                        env_yaml_platform = fileoperations.get_platform_from_env_yaml()
-                        if env_yaml_platform:
-                            platform = solutionstack.SolutionStack(env_yaml_platform).platform_shorthand
-                            solution = platform
-                            io.echo(strings['init.usingenvyamlplatform'].replace('{platform}', platform))
-                            platform_set = True
-
-                    if not platform_set:
-                        solution = solution_stack_ops.get_solution_stack_from_customer()
-
-                initializeops.setup(self.app_name, self.region,
-                                    solution)
-
-                if 'IIS' not in solution:
-                    keyname = self.get_keyname(default=key)
-
-                    if keyname == -1:
-                        self.keyname = None
-
-                    fileoperations.write_config_setting('global', 'default_ec2_keyname',
-                                                        keyname)
+                if not solution and fileoperations.env_yaml_exists():
+                    solution = extract_solution_stack_from_env_yaml()
+                    if solution:
+                        io.echo(strings['init.usingenvyamlplatform'].replace('{platform}', solution))
+                solution = solution or solution_stack_ops.get_solution_stack_from_customer()
+                initializeops.setup(app_name, region, solution)
+                configure_keyname(solution, keyname, keyname_of_existing_application, interactive, force_non_interactive)
                 os.chdir(cwd)
 
 
@@ -523,25 +322,37 @@ def get_branch_interactive(repository):
     return branch_name
 
 
-def check_credentials(profile, given_profile, given_region, interactive, force_non_interactive):
+def configure_codecommit(source):
+    source_location, repository, branch = utils.parse_source(source)
+    source_control = SourceControl.get_source_control()
+
     try:
-        # Note, region is None unless explicitly set or read from old eb
-        initializeops.credentials_are_valid()
-        return profile, given_region
-    except NoRegionError:
-        region = get_region(None, interactive, force_non_interactive)
-        aws.set_region(region)
-        return profile, region
-    except InvalidProfileError as e:
-        if given_profile:
-            # Provided profile is invalid, raise exception
-            raise e
-        else:
-            # eb-cli profile doesnt exist, revert to default
-            # try again
-            profile = None
-            aws.set_profile(profile)
-            return check_credentials(profile, given_profile, given_region, interactive, force_non_interactive)
+        if not source_location:
+            io.validate_action(prompts['codecommit.usecc'], "y")
+
+        # Setup git config settings for code commit credentials
+        source_control.setup_codecommit_cred_config()
+
+        repository, branch = establish_codecommit_repository_and_branch(repository, branch, source_control, source_location)
+
+    except ValidationError:
+        LOG.debug("Denied option to use CodeCommit, continuing initialization")
+
+    return repository, branch
+
+
+def configure_keyname(solution, keyname, keyname_of_existing_app, interactive, force_non_interactive):
+    if 'IIS' not in solution:
+        keyname = get_keyname(keyname, keyname_of_existing_app, interactive, force_non_interactive)
+
+        if keyname == -1:
+            keyname = None
+
+        fileoperations.write_config_setting(
+            'global',
+            'default_ec2_keyname',
+            keyname
+        )
 
 
 def create_app_or_use_existing_one(app_name, default_env):
@@ -551,22 +362,12 @@ def create_app_or_use_existing_one(app_name, default_env):
         return commonops.create_app(app_name, default_env=default_env)
 
 
-def set_up_credentials(given_profile, given_region, interactive, force_non_interactive=False):
-    if given_profile:
-        # Profile already set at abstractController
-        profile = given_profile
-    else:
-        profile = 'eb-cli'
-        aws.set_profile(profile)
+def customer_is_avoiding_non_interactive_flow(platform):
+    return not not platform
 
-    profile, region = check_credentials(profile, given_profile, given_region, interactive, force_non_interactive)
 
-    if not initializeops.credentials_are_valid():
-        initializeops.setup_credentials()
-    else:
-        fileoperations.write_config_setting('global', 'profile', profile)
-
-    return region
+def directory_is_already_associated_with_a_branch():
+    return gitops.git_management_enabled()
 
 
 def extract_solution_stack_from_env_yaml():
@@ -576,35 +377,66 @@ def extract_solution_stack_from_env_yaml():
         return platform
 
 
-def get_region_from_inputs(region):
-    # Get region from config file
-    if not region:
+def get_app_name(customer_specified_app_name, interactive, force_non_interactive):
+    if customer_specified_app_name:
+        return customer_specified_app_name
+
+    try:
+        app_name = fileoperations.get_application_name(default=None)
+    except NotInitializedError:
+        app_name = None
+
+    if force_non_interactive and not interactive:
+        return fileoperations.get_current_directory_name()
+    elif interactive or not app_name:
+        return _get_application_name_interactive()
+    return app_name
+
+
+def get_keyname(keyname, keyname_of_existing_app, interactive, force_non_interactive):
+    keyname_passed_through_command_line = not not keyname
+    keyname = keyname or keyname_of_existing_app
+    if not keyname:
         try:
-            region = commonops.get_default_region()
+            keyname = commonops.get_default_keyname()
         except NotInitializedError:
-            region = None
+            keyname = None
 
-    return region
+    if force_non_interactive and not interactive:
+        return keyname
+
+    if (
+            (interactive and not keyname_passed_through_command_line)
+            or (not keyname and not force_non_interactive)
+    ):
+        keyname = sshops.prompt_for_ec2_keyname()
+    elif keyname != -1:
+        commonops.upload_keypair_if_needed(keyname)
+
+    return keyname
 
 
-def get_region(region_argument, interactive, force_non_interactive=False):
-    # Get region from command line arguments
-    region = get_region_from_inputs(region_argument)
+def get_solution_stack(platform, sstack, interactive):
+    customer_provided_platform = not not platform
+    if not platform:
+        try:
+            platform = solution_stack_ops.get_default_solution_stack()
+        except NotInitializedError:
+            platform = None
 
-    # Ask for region
-    if (not region) and force_non_interactive:
-        # Choose defaults
-        region_list = regions.get_all_regions()
-        region = region_list[2].name
+    # Validate that the platform exists
+    if platform:
+        solution_stack_ops.find_solution_stack_from_string(platform)
 
-    if not region or (interactive and not region_argument):
-        io.echo()
-        io.echo('Select a default region')
-        region_list = regions.get_all_regions()
-        result = utils.prompt_for_item_in_list(region_list, default=3)
-        region = result.name
+    platform = platform or sstack
 
-    return region
+    if fileoperations.env_yaml_exists():
+        platform = platform or extract_solution_stack_from_env_yaml()
+
+    if not platform or (interactive and not customer_provided_platform):
+        platform = solution_stack_ops.get_solution_stack_from_customer().platform_shorthand
+
+    return platform
 
 
 def handle_buildspec_image(solution, force_non_interactive):
@@ -625,10 +457,7 @@ def handle_buildspec_image(solution, force_non_interactive):
         fileoperations.write_buildspec_config_header('Image', platform_image['name'])
 
 
-def set_default_env(default_env, interactive, force_non_interactive):
-    if default_env:
-        return default_env
-
+def set_default_env(interactive, force_non_interactive):
     if force_non_interactive:
         return '/ni'
 
@@ -639,11 +468,65 @@ def set_default_env(default_env, interactive, force_non_interactive):
             pass
 
 
-def set_region_for_application(interactive, region, force_non_interactive):
-    if interactive or (not region and not force_non_interactive):
-        region = get_region(region, interactive, force_non_interactive)
+def establish_codecommit_branch(repository, branch, source_control, source_location):
+    if branch is None:
+        branch = get_branch_interactive(repository)
     else:
-        region = get_region_from_inputs(region)
-    aws.set_region(region)
+        try:
+            codecommit.get_branch(repository, branch)
+        except ServiceError as ex:
+            if source_location:
+                create_codecommit_branch(source_control, branch)
+            else:
+                io.log_error(strings['codecommit.nobranch'])
+                raise ex
+        source_control.setup_existing_codecommit_branch(branch, None)
 
-    return region
+    return branch
+
+
+def establish_codecommit_repository(repository, source_control, source_location):
+    if repository is None:
+        repository = get_repository_interactive()
+    else:
+        try:
+            setup_codecommit_remote_repo(repository, source_control)
+        except ServiceError as ex:
+            if source_location:
+                create_codecommit_repository(repository)
+                setup_codecommit_remote_repo(repository, source_control)
+            else:
+                io.log_error(strings['codecommit.norepo'])
+                raise ex
+    return repository
+
+
+def establish_codecommit_repository_and_branch(repository, branch, source_control, source_location):
+    repository = establish_codecommit_repository(repository, source_control, source_location)
+    branch = establish_codecommit_branch(repository, branch, source_control, source_location)
+
+    return repository, branch
+
+
+def should_prompt_customer_to_opt_into_codecommit(
+        force_non_interactive,
+        region_name,
+        source
+):
+    source_location, repository, branch = utils.parse_source(source)
+
+    if force_non_interactive:
+        return False
+    elif source_location and not codecommit.region_supported(region_name):
+        io.log_warning(strings['codecommit.badregion'])
+        return False
+    elif not fileoperations.is_git_directory_present():
+        io.echo(strings['codecommit.nosc'])
+        return False
+    elif not fileoperations.program_is_installed('git'):
+        io.echo(strings['codecommit.nosc'])
+        return False
+    elif directory_is_already_associated_with_a_branch():
+        return False
+
+    return True

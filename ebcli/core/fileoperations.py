@@ -82,13 +82,8 @@ _marker = object()
 
 
 class ProjectRoot(object):
-    __root = None
-
     @classmethod
     def traverse(cls):
-        if cls.__root:
-            return cls.__root
-
         cwd = os.getcwd()
         if not os.path.isdir(beanstalk_directory):
             LOG.debug('beanstalk directory not found in ' + cwd +
@@ -101,12 +96,7 @@ class ProjectRoot(object):
 
             ProjectRoot.traverse()
         else:
-            cls.__root = cwd
             LOG.debug('Project root found at: ' + cwd)
-
-    @classmethod
-    def _reset_root(cls):
-        cls.__root = None
 
 
 def _get_option(config, section, key, default):
@@ -149,10 +139,6 @@ def get_war_file_location():
         os.chdir(cwd)
 
 
-def old_eb_config_present():
-    return os.path.isfile(beanstalk_directory + 'config')
-
-
 def config_file_present():
     return os.path.isfile(local_config_file)
 
@@ -163,41 +149,6 @@ def project_file_path(filename):
 
 def project_file_exists(filename):
     return file_exists(project_file_path(filename))
-
-
-def get_values_from_old_eb():
-    old_config_file = beanstalk_directory + 'config'
-    config = configparser.ConfigParser()
-    config.read(old_config_file)
-
-    app_name = _get_option(config, 'global', 'ApplicationName', None)
-    cred_file = _get_option(config, 'global', 'AwsCredentialFile', None)
-    default_env = _get_option(config, 'global', 'EnvironmentName', None)
-    solution_stack_name = _get_option(config, 'global', 'SolutionStack', None)
-    region = _get_option(config, 'global', 'Region', None)
-
-    access_id, secret_key = read_old_credentials(cred_file)
-    return {'app_name': app_name,
-            'access_id': access_id,
-            'secret_key': secret_key,
-            'default_env': default_env,
-            'platform': solution_stack_name,
-            'region': region,
-            }
-
-
-def read_old_credentials(file_location):
-    if file_location is None:
-        return None, None
-    config_str = '[default]\n' + open(file_location, 'r').read()
-    config_fp = StringIO(config_str)
-
-    config = configparser.ConfigParser()
-    config.readfp(config_fp)
-
-    access_id = _get_option(config, 'default', 'AWSAccessKeyId', None)
-    secret_key = _get_option(config, 'default', 'AWSSecretKey', None)
-    return access_id, secret_key
 
 
 def save_to_aws_config(access_key, secret_key):

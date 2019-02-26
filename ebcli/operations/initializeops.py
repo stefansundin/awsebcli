@@ -22,18 +22,6 @@ from ebcli.core.ebglobals import Constants
 LOG = minimal_logger(__name__)
 
 
-def credentials_are_valid():
-    try:
-        elasticbeanstalk.get_available_solution_stacks(fail_on_empty_response=False)
-        return True
-    except CredentialsError:
-        return False
-    except NotAuthorizedError as e:
-        io.log_error('The current user does not have the correct permissions. '
-                     'Reason: {0}'.format(e.message))
-        return False
-
-
 def setup(
         app_name,
         region,
@@ -67,26 +55,6 @@ def setup(
         fileoperations.write_config_setting('deploy', 'artifact', war_file)
 
     setup_ignore_file()
-
-
-def setup_credentials(access_id=None, secret_key=None):
-    io.log_info('Setting up ~/aws/ directory with config file')
-
-    if access_id is None or secret_key is None:
-        io.echo(strings['cred.prompt'])
-
-    if access_id is None:
-        access_id = io.prompt('aws-access-id',
-                              default='ENTER_AWS_ACCESS_ID_HERE')
-    if secret_key is None:
-        secret_key = io.prompt('aws-secret-key', default='ENTER_SECRET_HERE')
-
-    fileoperations.save_to_aws_config(access_id, secret_key)
-
-    fileoperations.touch_config_folder()
-    fileoperations.write_config_setting('global', 'profile', 'eb-cli')
-
-    aws.set_session_creds(access_id, secret_key)
 
 
 def setup_directory(

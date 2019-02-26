@@ -12,6 +12,13 @@ awsebcli.egg-info/top_level.txt
 bin/__init__.py
 bin/eb
 ebcli/__init__.py
+ebcli/bundled/__init__.py
+ebcli/bundled/asciimatics/__init__.py
+ebcli/bundled/asciimatics/event.py
+ebcli/bundled/asciimatics/exceptions.py
+ebcli/bundled/asciimatics/overrides.py
+ebcli/bundled/asciimatics/screen.py
+ebcli/bundled/asciimatics/utilities.py
 ebcli/containers/__init__.py
 ebcli/containers/abstractcontainer.py
 ebcli/containers/commands.py
@@ -115,7 +122,9 @@ ebcli/lib/elb.py
 ebcli/lib/elbv2.py
 ebcli/lib/heuristics.py
 ebcli/lib/iam.py
+ebcli/lib/kms.py
 ebcli/lib/s3.py
+ebcli/lib/sns.py
 ebcli/lib/utils.py
 ebcli/lib/botocoredata/elasticbeanstalk/2010-12-01/paginators-1.json
 ebcli/lib/botocoredata/elasticbeanstalk/2010-12-01/service-2.json
@@ -123,6 +132,7 @@ ebcli/objects/__init__.py
 ebcli/objects/api_filters.py
 ebcli/objects/application.py
 ebcli/objects/buildconfiguration.py
+ebcli/objects/cfn_stack.py
 ebcli/objects/conversionconfiguration.py
 ebcli/objects/environment.py
 ebcli/objects/environmentsettings.py

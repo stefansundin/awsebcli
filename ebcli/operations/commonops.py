@@ -23,22 +23,27 @@ from cement.utils.shell import exec_cmd
 
 from ebcli.operations import buildspecops
 from ebcli.core import fileoperations, io
+from ebcli.core.ebglobals import Constants
 from ebcli.lib import aws, ec2, elasticbeanstalk, heuristics, iam, s3, utils, codecommit
 from ebcli.lib.aws import InvalidParameterValueError
 from ebcli.objects.exceptions import (
+    CredentialsError,
     AlreadyExistsError,
     CommandError,
     NotFoundError,
     NotSupportedError,
     InvalidOptionsError,
+    InvalidProfileError,
     InvalidStateError,
     InvalidSyntaxError,
+    NoRegionError,
     NotAuthorizedError,
     NotInitializedError,
     ServiceError,
     TimeoutError
 )
 from ebcli.objects.sourcecontrol import SourceControl
+from ebcli.objects.region import get_all_regions
 from ebcli.resources.strings import strings, responses, prompts
 from ebcli.resources.statics import iam_documents, iam_attributes
 
@@ -947,6 +952,127 @@ def create_instance_profile(
         io.log_warning(strings['platformcreateiamdescribeerror.info'].format(profile_name=profile_name))
 
     return profile_name
+
+
+def credentials_are_valid():
+    try:
+        elasticbeanstalk.get_available_solution_stacks(fail_on_empty_response=False)
+        return True
+    except CredentialsError:
+        return False
+    except NotAuthorizedError as e:
+        io.log_error('The current user does not have the correct permissions. '
+                     'Reason: {0}'.format(e.message))
+        return False
+
+
+def setup_credentials(access_id=None, secret_key=None):
+    io.log_info('Setting up ~/aws/ directory with config file')
+
+    if access_id is None or secret_key is None:
+        io.echo(strings['cred.prompt'])
+
+    if access_id is None:
+        access_id = io.prompt('aws-access-id',
+                              default='ENTER_AWS_ACCESS_ID_HERE')
+    if secret_key is None:
+        secret_key = io.prompt('aws-secret-key', default='ENTER_SECRET_HERE')
+
+    fileoperations.save_to_aws_config(access_id, secret_key)
+
+    fileoperations.touch_config_folder()
+    fileoperations.write_config_setting('global', 'profile', 'eb-cli')
+
+    aws.set_session_creds(access_id, secret_key)
+
+
+def get_region_from_inputs(region):
+    # Get region from config file
+    if not region:
+        try:
+            region = get_default_region()
+        except NotInitializedError:
+            region = None
+
+    return region
+
+
+def get_region(region_argument, interactive, force_non_interactive=False):
+    # Get region from command line arguments
+    region = get_region_from_inputs(region_argument)
+
+    # Ask for region
+    if (not region) and force_non_interactive:
+        # Choose defaults
+        region_list = get_all_regions()
+        region = region_list[2].name
+
+    if not region or (interactive and not region_argument):
+        io.echo()
+        io.echo('Select a default region')
+        region_list = get_all_regions()
+        result = utils.prompt_for_item_in_list(region_list, default=3)
+        region = result.name
+
+    return region
+
+
+def check_credentials(profile, given_profile, given_region, interactive, force_non_interactive):
+    try:
+        # Note, region is None unless explicitly set or read from old eb
+        credentials_are_valid()
+        return profile, given_region
+    except NoRegionError:
+        region = get_region(None, interactive, force_non_interactive)
+        aws.set_region(region)
+        return profile, region
+    except InvalidProfileError as e:
+        if given_profile:
+            # Provided profile is invalid, raise exception
+            raise e
+        else:
+            # eb-cli profile doesnt exist, revert to default
+            # try again
+            profile = None
+            aws.set_profile(profile)
+            return check_credentials(profile, given_profile, given_region, interactive, force_non_interactive)
+
+
+def raise_if_inside_application_workspace():
+    workspace_type = fileoperations.get_workspace_type(None)
+    if workspace_type and workspace_type == Constants.WorkSpaceTypes.APPLICATION:
+        raise EnvironmentError(strings['platforminit.application_workspace_already_initialized'])
+
+
+def raise_if_inside_platform_workspace():
+    workspace_type = fileoperations.get_workspace_type(None)
+    if workspace_type and workspace_type == Constants.WorkSpaceTypes.PLATFORM:
+        raise EnvironmentError(strings['init.platform_workspace_already_initialized'])
+
+
+def set_up_credentials(given_profile, given_region, interactive, force_non_interactive=False):
+    if given_profile:
+        # Profile already set at abstractController
+        profile = given_profile
+    elif os.environ.get('AWS_ACCESS_KEY_ID') and os.environ.get('AWS_SECRET_ACCESS_KEY'):
+        profile = None
+    else:
+        profile = 'eb-cli'
+        aws.set_profile(profile)
+
+    profile, _ = check_credentials(profile, given_profile, given_region, interactive, force_non_interactive)
+
+    if not credentials_are_valid():
+        setup_credentials()
+    else:
+        fileoperations.write_config_setting('global', 'profile', profile)
+
+
+def set_region_for_application(interactive, region, force_non_interactive):
+    region = get_region(region, interactive, force_non_interactive)
+    aws.set_region(region)
+
+    return region
 
 
 def _create_instance_role(role_name, policy_arns):

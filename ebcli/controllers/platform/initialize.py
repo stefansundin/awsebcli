@@ -17,9 +17,8 @@ from ebcli.core import fileoperations
 from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.lib import aws
 from ebcli.objects.exceptions import NotInitializedError
-from ebcli.operations import platformops, initializeops
+from ebcli.operations import commonops, platformops, initializeops
 from ebcli.resources.strings import strings, flag_text, prompts
-from ebcli.controllers.initialize import get_region, get_region_from_inputs, set_up_credentials
 from ebcli.core.ebglobals import Constants
 from ebcli.operations import commonops, sshops
 
@@ -43,19 +42,21 @@ class GenericPlatformInitController(AbstractBaseController):
             return type('Meta', cls.__bases__, dict(cls.__dict__))
 
     def do_command(self):
+        commonops.raise_if_inside_application_workspace()
+
         fileoperations.touch_config_folder()
 
         self.interactive = self.app.pargs.interactive or not self.app.pargs.platform_name
         self.region = self.app.pargs.region
 
         if self.interactive or not self.app.pargs.platform_name:
-            self.region = get_region(self.app.pargs.region, self.interactive)
+            self.region = commonops.get_region(self.app.pargs.region, self.interactive)
         else:
-            self.region = get_region_from_inputs(self.app.pargs.region)
+            self.region = commonops.get_region_from_inputs(self.app.pargs.region)
 
         aws.set_region(self.region)
 
-        self.region = set_up_credentials(self.app.pargs.profile, self.region, self.interactive)
+        self.region = commonops.set_up_credentials(self.app.pargs.profile, self.region, self.interactive)
         self.platform_name, version = get_platform_name_and_version(self.app.pargs.platform_name)
         self.keyname = self.app.pargs.keyname
 
