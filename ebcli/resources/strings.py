@@ -125,7 +125,7 @@ To get started enter "eb platform init". Then enter "eb platform create".""",
 (application workspace only)""",
     'platformlist.info': 'In a platform workspace, lists versions of the custom '
                          'platform associated with this workspace. You can reduce '
-                         'the result set by using filters.\n'
+                         'the result set by using filters.\n\n'
                          'Elsewhere, shows a list of platforms for use with "eb init -p". '
                          'Enter "--verbose" to get the full platform name.',
     'platformworkspaceselect.info': 'Selects platform resources to use for this workspace.',
@@ -513,6 +513,8 @@ To get started enter "eb platform init". Then enter "eb platform create".""",
                               "white space, and these characters are allowed: _ . : / = + - @.",
     'tags.list_with_other_arguments': "You can't specify the '--list' option with the '--add', "
                                       "'--delete', or '--update' option.",
+    'tags.resource_environment_conflict': "You can't specify the '--resource' option with the "
+                                      "'environment' positional argument",
     'tags.resource_tags_missing': "The response of the 'list_tags_for_resource' API call is "
                                   "missing the 'ResourceTags' field.",
     'tags.tag_keys_already_exist': "Tags with the following keys can't be added because they "
@@ -524,9 +526,9 @@ To get started enter "eb platform init". Then enter "eb platform create".""",
     'tags.tag_keys_dont_exist_for_update': "Tags with the following keys can't be updated "
                                            "because they don't exist:",
     'tags.tag_key_max_length_exceeded': "Tag with the following key exceed length limit. Tag "
-                                        "keys can be up to 128 characters in length.",
+                                        "keys can be up to 127 characters in length.",
     'tags.tag_value_max_length_exceeded': "Tag with the following value exceed length limit. "
-                                          "Tag values can be up to 256 characters in length.",
+                                          "Tag values can be up to 255 characters in length.",
     'cloudformation.cannot_find_app_source_for_environment': 'Cannot find app source for environment'
 }
 prompts = {
@@ -704,7 +706,7 @@ flag_text = {
                          'for your code.'
                          ' Availables sources: {codecommit}. Available actions: '
                          '{enable, disable}',
-
+    'config.tags': 'a comma separated list of tags as key=value pairs',
     'create.name': 'desired Environment name',
     'create.cname': 'cname prefix',
     'create.itype': 'instance type i.e. t1.micro',
@@ -861,6 +863,7 @@ flag_text = {
     'tags.env': 'environment on which to perform tags operation',
     'tags.info': 'Allows adding, deleting, updating, and listing of environment tags.',
     'tags.list': 'lists all environment resource tags',
+    'tags.resource': "Finds tags associated with given resource.",
     'tags.update': 'update existing environment tags provided as a comma-separated list of keys=value pairs',
 }
 

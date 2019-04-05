@@ -78,7 +78,7 @@ class ArgumentSyntaxValidator(object):
 
         cls.validate_key(key)
 
-        if len(value) > 256:
+        if len(value) > 255:
             raise cls.InvalidTagValueError(
                 (linesep * 2).join(
                     [
@@ -100,7 +100,7 @@ class ArgumentSyntaxValidator(object):
         Method that validates keys represented as strings are legal
         :param key: a string representation of a key
         """
-        if len(key) > 128:
+        if len(key) > 127:
             raise cls.InvalidTagKeyError(
                 (linesep * 2).join(
                     [
@@ -233,12 +233,12 @@ class TagList(object):
         self.deletions = []
         self.updates = []
 
-    def print_tags(self, env_name):
+    def print_tags(self, resource_arn):
         """
         Method to print the list of "Key" and "Value" pairs in columnar format.
         :return: None
         """
-        print("Showing tags for environment '{1}':".format(linesep, env_name))
+        print("Showing tags for resource '{1}':".format(linesep, resource_arn))
         io.echo('')
 
         ideal_column_length = column_length(self.current_list) + 3

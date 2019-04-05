@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: awsebcli
-Version: 3.14.13
+Version: 3.15.0
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -246,6 +246,14 @@ Description: ======
         =========
         Changelog
         =========
+        --------------------
+        3.15.0 (2019-04-04)
+        --------------------
+        - Added ability to tag applications through `eb init`
+        - Added ability to tag configuration templates through `eb config save`
+        - Added ability to tag custom platforms through `eb platform create`
+        - Added support to tag resources with ARNs through the `--resource` argument of `eb tags`
+        
         --------------------
         3.14.13 (2019-02-22)
         --------------------

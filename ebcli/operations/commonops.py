@@ -44,6 +44,7 @@ from ebcli.objects.exceptions import (
 )
 from ebcli.objects.sourcecontrol import SourceControl
 from ebcli.objects.region import get_all_regions
+from ebcli.objects.platform import PlatformVersion
 from ebcli.resources.strings import strings, responses, prompts
 from ebcli.resources.statics import iam_documents, iam_attributes
 
@@ -376,12 +377,13 @@ def get_app_version_s3_location(app_name, version_label):
     return s3_bucket, s3_key
 
 
-def create_app(app_name, default_env=None):
+def create_app(app_name, default_env=None, tags=[]):
     try:
         io.log_info('Creating application: ' + app_name)
         elasticbeanstalk.create_application(
             app_name,
-            strings['app.description']
+            strings['app.description'],
+            tags
         )
 
         set_environment_for_current_branch(None)
@@ -997,15 +999,18 @@ def get_region_from_inputs(region):
     return region
 
 
-def get_region(region_argument, interactive, force_non_interactive=False):
+def get_region(region_argument, interactive, force_non_interactive=False, platform=None):
     # Get region from command line arguments
     region = get_region_from_inputs(region_argument)
 
     # Ask for region
     if (not region) and force_non_interactive:
-        # Choose defaults
-        region_list = get_all_regions()
-        region = region_list[2].name
+        if platform:
+            region = PlatformVersion.get_region_from_platform_arn(platform)
+        if not region:
+            # Choose defaults
+            region_list = get_all_regions()
+            region = region_list[2].name
 
     if not region or (interactive and not region_argument):
         io.echo()
@@ -1068,8 +1073,8 @@ def set_up_credentials(given_profile, given_region, interactive, force_non_inter
         fileoperations.write_config_setting('global', 'profile', profile)
 
 
-def set_region_for_application(interactive, region, force_non_interactive):
-    region = get_region(region, interactive, force_non_interactive)
+def set_region_for_application(interactive, region, force_non_interactive, platform=None):
+    region = get_region(region, interactive, force_non_interactive, platform)
     aws.set_region(region)
 
     return region

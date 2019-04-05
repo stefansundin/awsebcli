@@ -89,11 +89,12 @@ def _list_platform_versions(kwargs, nextToken=None):
     return platforms, nextToken
 
 
-def create_application(app_name, descrip):
+def create_application(app_name, descrip, tags=[]):
     LOG.debug('Inside create_application api wrapper')
     try:
         result = _make_api_call('create_application',
                                 ApplicationName=app_name,
+                                Tags=tags,
                                 Description=descrip)
     except InvalidParameterValueError as e:
         string = responses['app.exists'].replace('{app-name}', app_name)
@@ -113,12 +114,16 @@ def create_platform_version(
         instance_profile,
         key_name,
         instance_type,
+        tags=[],
         vpc=None
 ):
     kwargs = dict()
 
     if s3_bucket and s3_key:
         kwargs['PlatformDefinitionBundle'] = {'S3Bucket': s3_bucket, 'S3Key': s3_key}
+
+    if tags is not None:
+        kwargs['Tags'] = tags
 
     option_settings = []
 
@@ -699,7 +704,7 @@ def terminate_environment(env_name, force_terminate=False):
 
 
 def create_configuration_template(app_name, env_name, template_name,
-                                  description):
+                                  description, tags):
     kwargs = {
         'TemplateName': template_name,
         'ApplicationName': app_name,
@@ -707,8 +712,8 @@ def create_configuration_template(app_name, env_name, template_name,
         'TemplateSpecification':
             {'TemplateSource':
                 {'EnvironmentName': env_name}},
+        'Tags': tags
     }
-
     try:
         result = _make_api_call('create_configuration_template', **kwargs)
     except InvalidParameterValueError as e:
@@ -835,19 +840,19 @@ def get_environment_arn(env_name):
     return get_environments([env_name])[0].environment_arn
 
 
-def list_tags_for_resource(env_name):
+def list_tags_for_resource(resource_arn):
     response = _make_api_call(
         'list_tags_for_resource',
-        ResourceArn=get_environment_arn(env_name)
+        ResourceArn=resource_arn
     )
 
     return sorted(response['ResourceTags'], key=lambda tag: tag['Key'])
 
 
-def update_tags_for_resource(env_name, tags_to_add, tags_to_remove):
+def update_tags_for_resource(resource_arn, tags_to_add, tags_to_remove):
     response = _make_api_call(
         'update_tags_for_resource',
-        ResourceArn=get_environment_arn(env_name),
+        ResourceArn=resource_arn,
         TagsToAdd=tags_to_add,
         TagsToRemove=tags_to_remove
     )

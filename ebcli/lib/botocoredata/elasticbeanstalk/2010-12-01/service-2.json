@@ -1912,6 +1912,7 @@
       "members":{
         "ApplicationName":{"shape":"ApplicationName"},
         "Description":{"shape":"Description"},
+        "Tags":{"shape":"Tags"},
         "ResourceLifecycleConfig":{"shape":"ApplicationResourceLifecycleConfig"}
       }
     },
@@ -1951,7 +1952,8 @@
         "OptionSettings":{"shape":"ConfigurationOptionSettingsList"},
         "OptionsToRemove":{"shape":"OptionsSpecifierList"},
         "VersionLabel":{"shape":"VersionLabel"},
-        "TemplateSpecification":{"shape":"EnvironmentTemplateSpecification"}
+        "TemplateSpecification":{"shape":"EnvironmentTemplateSpecification"},
+        "Tags":{"shape":"Tags"}
       }
     },
     "CreateEnvironmentMessage":{
@@ -1986,6 +1988,7 @@
         "PlatformVersion":{"shape":"PlatformVersion"},
         "PlatformDefinitionBundle":{"shape":"S3Location"},
         "EnvironmentName":{"shape":"EnvironmentName"},
+        "Tags":{"shape":"Tags"},
         "OptionSettings":{"shape":"ConfigurationOptionSettingsList"}
       }
     },
