@@ -1,10 +1,15 @@
 =========
 Changelog
 =========
+-------------------
+3.15.2 (2019-05-22)
+-------------------
+- Added ap-east-1 China (Hong Kong) region
+
 --------------------
 3.15.1 (2019-05-15)
 --------------------
-- Fixed bug that rejected the `platform list --region ...` command in an un-initialized directory
+- Fixed bug that rejected the `eb platform list --region ...` command in an un-initialized directory
 
 --------------------
 3.15.0 (2019-04-04)
@@ -143,7 +148,7 @@ Changelog
 3.12.4 (2018-03-07)
 -------------------
 - Fixed `DescribeEvents` polling logic to use `datetime.utcnow()` instead of `datetime.now()`
-- Fixed `TimeoutError`s to force `eb` to exit with return code 4
+- Fixed `TimeoutError` s to force `eb` to exit with return code 4
 - Fixed `eb deploy --modules ...` bug preventing it from finding project root
 - Fixed `eb platform list --verbose` bug preventing it from listing all custom platform ARNs
 - Fixed `eb init --source` bug by enforcing association with remote CodeCommit repository
