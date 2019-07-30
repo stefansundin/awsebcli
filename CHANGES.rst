@@ -2,6 +2,12 @@
 Changelog
 =========
 -------------------
+3.15.3 (2019-07-18)
+-------------------
+- Added me-south-1 Middle East (Bahrain) region
+- Added `--timeout` argument to the `eb restore` command
+
+-------------------
 3.15.2 (2019-05-22)
 -------------------
 - Added ap-east-1 China (Hong Kong) region
@@ -148,7 +154,7 @@ Changelog
 3.12.4 (2018-03-07)
 -------------------
 - Fixed `DescribeEvents` polling logic to use `datetime.utcnow()` instead of `datetime.now()`
-- Fixed `TimeoutError` s to force `eb` to exit with return code 4
+- Fixed `TimeoutError` to force `eb` to exit with return code 4
 - Fixed `eb deploy --modules ...` bug preventing it from finding project root
 - Fixed `eb platform list --verbose` bug preventing it from listing all custom platform ARNs
 - Fixed `eb init --source` bug by enforcing association with remote CodeCommit repository
@@ -169,9 +175,9 @@ Changelog
 - Fixed behavior of `--platform` flag to pick the latest version of solution stack when input is ambiguous
 - Fixed .ebignore logic to recognize files with Unicode characters
 - Fixed redundant downloading of Packer events published by CloudWatch
-- Fixed silent rescues of `UnicodeEncodeError` s when printing Packer events
+- Fixed silent rescues of `UnicodeEncodeError` when printing Packer events
 - Fixed `DescribeEvents` polling in the context of custom platforms
-- Fixed `eb local run` to work with `PlatformArn` s
+- Fixed `eb local run` to work with `PlatformArn`
 - Fixed local-remote inconsistency observed after deployments using CodeCommit
 - Fixed misspelling in the prompt for whether VPC ELB should be public
 
