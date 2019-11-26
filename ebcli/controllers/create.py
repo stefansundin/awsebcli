@@ -30,7 +30,8 @@ from ebcli.operations import (
     createops,
     envvarops,
     saved_configs,
-    solution_stack_ops
+    solution_stack_ops,
+    spotops
 )
 from ebcli.operations.tagops import tagops
 from ebcli.resources.strings import strings, prompts, flag_text
@@ -75,6 +76,9 @@ class CreateController(AbstractBaseController):
             (['--cfg'], dict(help=flag_text['create.config'])),
             (['--source'], dict(help=flag_text['create.source'])),
             (['--elb-type'], dict(help=flag_text['create.elb_type'])),
+            (['-es', '--enable-spot'], dict(action='store_true', help=flag_text['create.enable_spot'])),
+            (['-sm', '--spot-max-price'], dict(help=flag_text['create.maxprice'])),
+            (['-it', '--instance-types'], dict(help=flag_text['create.instance_types'])),
             (['-db', '--database'], dict(
                 action="store_true", help=flag_text['create.database'])),
 
@@ -144,6 +148,10 @@ class CreateController(AbstractBaseController):
         elb_type = self.app.pargs.elb_type
         source = self.app.pargs.source
         process = self.app.pargs.process
+        enable_spot = self.app.pargs.enable_spot
+        spot_max_price = self.app.pargs.spot_max_price
+        instance_types = self.app.pargs.instance_types
+
         interactive = False if env_name else True
 
         provided_env_name = env_name
@@ -173,6 +181,18 @@ class CreateController(AbstractBaseController):
             if self.app.pargs.vpc_elbpublic or self.app.pargs.vpc_elbsubnets:
                 raise InvalidOptionsError(strings['create.single_and_elbpublic_or_elb_subnet'])
 
+        if spot_max_price and not enable_spot:
+            raise InvalidOptionsError(strings['create.missing_enable_spot'])
+
+        if instance_types and enable_spot and not spotops.are_instance_types_valid(instance_types):
+            raise InvalidOptionsError(strings['create.valid_spot_instances'])
+
+        if enable_spot and single:
+            raise InvalidOptionsError(strings['create.spot_and_single'])
+
+        if itype and instance_types:
+            raise InvalidOptionsError(strings['create.itype_and_instances'])
+
         app_name = self.get_app_name()
         tags = tagops.get_and_validate_tags(tags)
         envvars = get_and_validate_envars(envvars)
@@ -184,8 +204,13 @@ class CreateController(AbstractBaseController):
         cname = cname or get_environment_cname(env_name, provided_env_name, tier)
         key_name = key_name or commonops.get_default_keyname()
         elb_type = elb_type or get_elb_type_from_customer(interactive, single, tier)
+        enable_spot = enable_spot or spotops.get_spot_request_from_customer(interactive)
+        instance_types = instance_types or spotops.get_spot_instance_types_from_customer(interactive, enable_spot)
         database = self.form_database_object()
         vpc = self.form_vpc_object(tier, single)
+
+        if enable_spot and not instance_types:
+            raise InvalidOptionsError(strings['create.valid_spot_instances'])
 
         if not timeout and database:
             timeout = 15
@@ -209,7 +234,10 @@ class CreateController(AbstractBaseController):
             scale=scale,
             database=database,
             vpc=vpc,
-            elb_type=elb_type)
+            elb_type=elb_type,
+            enable_spot=enable_spot,
+            instance_types=instance_types,
+            spot_max_price = spot_max_price)
 
         env_request.option_settings += envvars
 

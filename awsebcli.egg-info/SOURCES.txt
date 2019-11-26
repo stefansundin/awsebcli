@@ -172,6 +172,7 @@ ebcli/operations/restoreops.py
 ebcli/operations/saved_configs.py
 ebcli/operations/scaleops.py
 ebcli/operations/solution_stack_ops.py
+ebcli/operations/spotops.py
 ebcli/operations/sshops.py
 ebcli/operations/statusops.py
 ebcli/operations/swapops.py

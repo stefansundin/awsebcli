@@ -2,6 +2,13 @@
 Changelog
 =========
 -------------------
+3.16.0 (2019-11-22)
+-------------------
+- Added support for spot fleet requests during environment creation
+- Updated `botocore` requirement to `>1.13.0,<1.14`
+- Updated `python-dateutil` requirement to `>=2.1,<2.8.1`
+
+-------------------
 3.15.3 (2019-07-18)
 -------------------
 - Added me-south-1 Middle East (Bahrain) region
@@ -48,7 +55,7 @@ Changelog
 3.14.10 (2019-01-21)
 --------------------
 - Introduced direct dependency on `requests>=2.20.1,<2.21`
-- Fixed bug that failed `--source` arguments with '/'s in the branch name
+- Fixed bug that failed `--source` arguments with '/' s in the branch name
 
 -------------------
 3.14.9 (2019-01-09)
@@ -57,7 +64,7 @@ Changelog
 - Updated `docker-compose` requirement to `>=1.23.2,<1.24`
 - Updated `botocore` requirement to `>=1.12.29,<1.13`
 - Updated `six` requirement to `>=1.11.0,<1.12.0`
-- Added ability to reference CodeCommit branch names containing '/'s
+- Added ability to reference CodeCommit branch names containing '/' s
 
 -------------------
 3.14.8 (2018-12-12)
@@ -144,7 +151,7 @@ Changelog
 - Fixed environment variables parsing logic during `eb create`
 - Fixed `eb health` for environments using basic health and an ELBV2 load balancer
 - Fixed `eb logs` behavior to choose an incorrect default log group for Windows platforms
-- Fixed `eb platform delete`'s inability to delete custom platforms in some situations
+- Fixed `eb platform delete`' s inability to delete custom platforms in some situations
 - Fixed `eb tags --list` failure occurring when the default branch environment is absent
 - Fixed .gitignore problem on Windows whereby files specified for omission could also be staged
 - Prevented attempts to create convenience symlinks to latest logs when executing with Python 2.7 on Windows
@@ -154,7 +161,7 @@ Changelog
 3.12.4 (2018-03-07)
 -------------------
 - Fixed `DescribeEvents` polling logic to use `datetime.utcnow()` instead of `datetime.now()`
-- Fixed `TimeoutError` to force `eb` to exit with return code 4
+- Fixed `TimeoutError` s to force `eb` to exit with return code 4
 - Fixed `eb deploy --modules ...` bug preventing it from finding project root
 - Fixed `eb platform list --verbose` bug preventing it from listing all custom platform ARNs
 - Fixed `eb init --source` bug by enforcing association with remote CodeCommit repository
@@ -175,9 +182,9 @@ Changelog
 - Fixed behavior of `--platform` flag to pick the latest version of solution stack when input is ambiguous
 - Fixed .ebignore logic to recognize files with Unicode characters
 - Fixed redundant downloading of Packer events published by CloudWatch
-- Fixed silent rescues of `UnicodeEncodeError` when printing Packer events
+- Fixed silent rescues of `UnicodeEncodeError` s when printing Packer events
 - Fixed `DescribeEvents` polling in the context of custom platforms
-- Fixed `eb local run` to work with `PlatformArn`
+- Fixed `eb local run` to work with `PlatformArn` s
 - Fixed local-remote inconsistency observed after deployments using CodeCommit
 - Fixed misspelling in the prompt for whether VPC ELB should be public
 
@@ -189,11 +196,11 @@ Changelog
 - Fixed hyperlink to page describing ECS permissions necessary to create multi-container docker environments
 - Fixed `DescribeEvents` polling logic for environment creation after ASG per-region quota is reached
 - Fixed `DescribeEvents` polling logic by filtering events returned accurately
-- Fixed `eb list`'s usage text by removing mention of environment name as a positional argument
+- Fixed `eb list`' s usage text by removing mention of environment name as a positional argument
 - Increased default timeout for `eb create` when the `-db` flag is specified
 - Modified `eb ssh` logic to use private IP address rather than private DNS when a public IP/DNS is not available
 - Modified generic EBCLI timeout message to prompt customers to view the result of `eb events -f`
-- Removed `eb ssh --custom`'s dependency on SSH private key in `~/.ssh`
+- Removed `eb ssh --custom`' s dependency on SSH private key in `~/.ssh`
 
 -------------------
 3.12.0 (2017-10-10)
