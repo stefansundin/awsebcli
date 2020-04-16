@@ -544,9 +544,14 @@ To get started enter "eb platform init". Then enter "eb platform create".""",
                                        ' by commas (at least two instance types are recommended.)'
 }
 prompts = {
+    'common.inputtext': 'make a selection',
+    'common.inputtext.default': 'default is {}',
     'events.hanging': 'Streaming new events. Use CTRL+C to exit.',
     'platform.validate': 'It appears you are using {platform}. Is this correct?',
     'platform.prompt': 'Select a platform.',
+    'platformfamily.prompt': 'Select a platform.',
+    'platformfamily.prompt.customplatform': 'Custom Platform',
+    'platformbranch.prompt': 'Select a platform branch.',
     'platform.prompt.withmodule': 'Select a platform for module: {module_name}.',
     'platformssh.nokey': 'This platform builder is not set up for SSH. Use "eb platform '
                          'ssh --setup" to set up SSH for that environment.',
@@ -640,7 +645,7 @@ prompts = {
                        'instance profile by typing "-ip {profile-name}".\n'
                        'For more information see: '
                        'https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/'
-                           'create_deploy_docker_ecs.html#create_deploy_docker_ecs_role',
+                       'create_deploy_docker_ecs.html#create_deploy_docker_ecs_role',
     'create.servicerole.info': '2.0+ Platforms require a service role. We will attempt to create '
                                'one for you. You can specify your own role using the '
                                '--service-role option.',
@@ -696,9 +701,30 @@ prompts = {
 }
 
 alerts = {
-    'platform.old': 'There is a newer version of the platform used by your '
-                    'environment. You can upgrade your environment to the '
-                    'most recent platform version by typing "eb upgrade".'
+    'env.platform.notrecommended': "The platform version that your environment "
+                                   "is using isn't recommended. There's a "
+                                   "recommended version in the same platform "
+                                   "branch.",
+    'env.platform.old': 'The platform version that your environment is using '
+                        'isn\'t up to date. There\'s a newer version. Type '
+                        '"eb upgrade" to upgrade your environment to the '
+                        'latest platform version.',
+    'env.platformbranch.deprecated': 'Your environment is using a deprecated '
+                                     'platform branch. It might not be '
+                                     'supported in the future.',
+    'env.platformbranch.retired': "Your environment is using a retired "
+                                  "platform branch. It's no longer supported.",
+    'platform.notrecommended': "The platform version you chose isn't "
+                               "recommended. There's a recommended version in "
+                               "the same platform branch.",
+    'platform.old': "The platform version you chose isn't up to date. There's "
+                    "a newer version.",
+    'platformbranch.deprecated': 'You chose a deprecated platform branch. It '
+                                 'might not be supported in the future.',
+    'platformbranch.retired': "You chose a retired platform branch. It's no "
+                              "longer supported.",
+    'platform.invalidstring': 'Elastic Beanstalk can\'t find a platform '
+                              'version that matches "{}".',
 }
 
 flag_text = {

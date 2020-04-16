@@ -1,5 +1,24 @@
+
 Changelog
 =========
+-------------------
+3.18.0 (2020-04-09)
+-------------------
+- Updated eb init command's --platform option to accept platform branch names
+- Updated eb init command's interactive platform menus to derive menu items from platform branches
+- Updated eb init command to display platform end-of-life alerts based on platform branch lifecycle state
+- Updated eb create --platform option to accept platform branch names
+- Updated eb create command to display platform end-of-life alerts based on platform branch lifecycle state
+- Updated eb platform select command's interactive menus to derive menu items from platform branches
+- Updated eb platform select command to display platform end-of-life alerts based on platform branch lifecycle state
+- Updated eb deploy command to display platform end-of-life alerts based on platform branch lifecycle state
+- Updated eb status command to display platform end-of-life alerts based on platform branch lifecycle state
+- Improving performance of .ebignore lookup
+- Upgrading botocore requirement to resolve awscli conflict
+- Upgrading pyyaml requirement to resolve awscli conflict
+- Upgrading colorama requirement to resolve awscli conflict
+
+-------------------
 3.17.1 (2020-01-22)
 -------------------
 - Updated botocore requirement to `>=1.14.0,<1.15`
@@ -31,14 +50,14 @@ Changelog
 -------------------
 - Added ap-east-1 China (Hong Kong) region
 
--------------------
+--------------------
 3.15.1 (2019-05-15)
--------------------
+--------------------
 - Fixed bug that rejected the `eb platform list --region ...` command in an un-initialized directory
 
--------------------
+--------------------
 3.15.0 (2019-04-04)
--------------------
+--------------------
 - Added ability to tag applications through `eb init`
 - Added ability to tag configuration templates through `eb config save`
 - Added ability to tag custom platforms through `eb platform create`
@@ -194,9 +213,9 @@ Changelog
 - Fixed behavior of `--platform` flag to pick the latest version of solution stack when input is ambiguous
 - Fixed .ebignore logic to recognize files with Unicode characters
 - Fixed redundant downloading of Packer events published by CloudWatch
-- Fixed silent rescues of `UnicodeEncodeError` s when printing Packer events
+- Fixed silent rescues of `UnicodeEncodeError`\s when printing Packer events
 - Fixed `DescribeEvents` polling in the context of custom platforms
-- Fixed `eb local run` to work with `PlatformArn` s
+- Fixed `eb local run` to work with `PlatformArn`\s
 - Fixed local-remote inconsistency observed after deployments using CodeCommit
 - Fixed misspelling in the prompt for whether VPC ELB should be public
 
@@ -464,9 +483,9 @@ Changelog
 - Unhide labs setup-cwl feature as well as logs --stream.
 - Add pip install command when a new version is available.
 
-----------------
+------------------
 3.5 (2015-08-11)
-----------------
+------------------
 - Add command "eb labs setup-ssl"
 - Add command "eb labs cloudwatchlogs-setup"
 - Change `eb open` to now open https if load balancer http port is OFF

@@ -19,13 +19,12 @@ import ebcli
 
 
 requires = [
-    'botocore>=1.14.0,<1.15',
+    'botocore>=1.15,<1.16',
     'cement==2.8.2',
-    'colorama>=0.3.9,<0.4.0',  # use the same range that 'docker-compose' uses
+    'colorama>=0.4,<1.0',  # use the same range that 'docker-compose' uses
     'future>=0.16.0,<0.17.0',
     'pathspec==0.5.9',
     'python-dateutil>=2.1,<2.8.1',  # use the same range that 'botocore' uses
-    'PyYAML>=5.2, <5.3',  # use the same range that 'aws-cli' uses. This is also compatible with 'docker-compose'
     'requests>=2.20.1,<2.21',
     'setuptools >= 20.0',
     'semantic_version == 2.5.0',
@@ -34,6 +33,12 @@ requires = [
     'urllib3>=1.24.1,<1.25',
     'wcwidth>=0.1.7,<0.2.0',
 ]
+
+if sys.version_info[:2] == (3, 4):
+    requires.append('PyYAML>=3.10,<5.3')
+else:
+    # use the same range that 'aws-cli' uses. This is also compatible with 'docker-compose'
+    requires.append('PyYAML>=5.3.1,<5.4')
 
 testing_requires = [
     'mock>=2.0.0',
@@ -52,12 +57,12 @@ if not sys.platform.startswith('win'):
     requires.append('docker-compose >= 1.25.2, < 1.26.0')
     requires.append('blessed>=1.9.5')
 
+
 setup_options = dict(
     name='awsebcli',
     version=ebcli.__version__,
     description='Command Line Interface for AWS EB.',
     long_description=open('README.rst').read() + open('CHANGES.rst').read(),
-    long_description_content_type='text/x-rst',
     scripts=['bin/eb'],
     data_files=[],
     author='AWS Elastic Beanstalk',

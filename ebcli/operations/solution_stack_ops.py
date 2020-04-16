@@ -17,8 +17,8 @@ from ebcli.lib import elasticbeanstalk, heuristics, utils
 from ebcli.objects.exceptions import NotFoundError
 from ebcli.objects.platform import PlatformVersion
 from ebcli.objects.solutionstack import SolutionStack
-from ebcli.operations import commonops, platformops
-from ebcli.resources.strings import prompts
+from ebcli.operations import commonops, platform_version_ops
+from ebcli.resources.strings import alerts, prompts
 
 CUSTOM_PLATFORM_OPTION = 'Custom Platform'
 
@@ -27,6 +27,10 @@ LOG = minimal_logger(__name__)
 
 def get_default_solution_stack():
     return commonops.get_config_setting_from_branch_or_default('default_platform')
+
+
+def get_all_solution_stacks():
+    return elasticbeanstalk.get_available_solution_stacks()
 
 
 def find_solution_stack_from_string(solution_string, find_newer=False):
@@ -60,14 +64,14 @@ def find_solution_stack_from_string(solution_string, find_newer=False):
     match = None
     if PlatformVersion.is_eb_managed_platform_arn(solution_string):
         if find_newer:
-            match = platformops.get_latest_eb_managed_platform(solution_string)
+            match = platform_version_ops.get_latest_eb_managed_platform(solution_string)
         else:
             match = platform_arn_to_solution_stack(solution_string)
     elif PlatformVersion.is_custom_platform_arn(solution_string):
         if find_newer:
-            match = platformops.get_latest_custom_platform(solution_string)
+            match = platform_version_ops.get_latest_custom_platform_version(solution_string)
         else:
-            match = platformops.find_custom_platform_from_string(solution_string)
+            match = platform_version_ops.find_custom_platform_version_from_string(solution_string)
 
     # Compare input with complete SolutionStack name and retrieve latest SolutionStack
     # in the series if `find_newer` is set to True
@@ -93,98 +97,12 @@ def find_solution_stack_from_string(solution_string, find_newer=False):
 
     # Compare input with custom platform names
     if not match:
-        match = platformops.find_custom_platform_from_string(solution_string)
+        match = platform_version_ops.find_custom_platform_version_from_string(solution_string)
 
     if not match:
-        raise NotFoundError('Platform "{}" does not appear to be valid'.format(solution_string))
+        raise NotFoundError(alerts['platform.invalidstring'].format(solution_string))
 
     return match
-
-
-def get_solution_stack_from_customer(module_name=None):
-    """
-    Method prompts customer for a platform name, and if applicable, a platform version name
-
-    :param module_name: An `module_name` to choose a platform corresponding to a
-        particular module in the EB application. This is applicable if the directory
-        is being `eb init`-ed with the `--modules` argument.
-
-    :return: A SolutionStack object representing the the customers choice of platform
-    """
-    solution_stacks = elasticbeanstalk.get_available_solution_stacks()
-    solution_stacks_grouped_by_language_name = \
-        SolutionStack.group_solution_stacks_by_language_name(
-            solution_stacks
-        )
-    language_names_to_display = [
-        solution_stack['LanguageName']
-        for solution_stack
-        in solution_stacks_grouped_by_language_name
-    ]
-
-    custom_platforms = platformops.list_custom_platform_versions()
-
-    if custom_platforms:
-        language_names_to_display.append(CUSTOM_PLATFORM_OPTION)
-
-    chosen_language_name = prompt_for_language_name(language_names_to_display, module_name)
-
-    if chosen_language_name == CUSTOM_PLATFORM_OPTION:
-        return platformops.get_custom_platform_from_customer(custom_platforms)
-
-    return SolutionStack(resolve_language_version(chosen_language_name, solution_stacks))
-
-
-def detect_platform():
-    """
-    Method attempts to guess the language name depending on the application source code
-    and asks the customer to verify whether the guess is correct.
-
-    :return: A string containing the name of the platform if the customer approves, otherwise None
-    """
-    detected_platform = heuristics.find_language_type()
-
-    if detected_platform:
-        io.echo()
-        io.echo(prompts['platform.validate'].replace('{platform}', detected_platform))
-        correct = io.get_boolean_response()
-
-        if correct:
-            return detected_platform
-
-
-def prompt_for_language_name(language_names_to_display, module_name=None):
-    """
-    Method prompts the customer to select a platform name in the interactive flow.
-
-    :param language_names_to_display: A list of platform names to ask the customer
-            to pick from.
-
-            e.g.
-                1. Node.js
-                2. PHP
-                3. Docker
-                4. ...
-
-    :param module_name: In case of a multi-module application, the name of the module
-                        the present selection of platform is for.
-
-    :return: A string representing the platform the customer picked in the interactive
-            flow
-    """
-    chosen_solution_stack = detect_platform()
-
-    if not chosen_solution_stack:
-        io.echo()
-
-        if not module_name:
-            io.echo(prompts['platform.prompt'])
-        else:
-            io.echo(prompts['platform.prompt.withmodule'].replace('{module_name}', module_name))
-
-        chosen_solution_stack = utils.prompt_for_item_in_list(language_names_to_display)
-
-    return chosen_solution_stack
 
 
 def platform_arn_to_solution_stack(platform_arn):

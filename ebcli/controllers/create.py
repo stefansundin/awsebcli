@@ -19,8 +19,11 @@ from ebcli.core.abstractcontroller import AbstractBaseController
 from ebcli.lib import elasticbeanstalk, utils
 from ebcli.objects.exceptions import (
     AlreadyExistsError,
-    InvalidOptionsError
+    InvalidOptionsError,
+    RetiredPlatformBranchError,
+    NotFoundError,
 )
+from ebcli.objects.platform import PlatformVersion, PlatformBranch
 from ebcli.objects.solutionstack import SolutionStack
 from ebcli.objects.requests import CreateEnvironmentRequest
 from ebcli.objects.tier import Tier
@@ -29,13 +32,16 @@ from ebcli.operations import (
     composeops,
     createops,
     envvarops,
+    platformops,
+    platform_branch_ops,
     saved_configs,
     solution_stack_ops,
-    spotops
+    spotops,
+    statusops,
 )
 from ebcli.operations.tagops import tagops
-from ebcli.resources.strings import strings, prompts, flag_text
-from ebcli.resources.statics import elb_names
+from ebcli.resources.strings import strings, prompts, flag_text, alerts
+from ebcli.resources.statics import elb_names, platform_branch_lifecycle_states
 
 
 class CreateController(AbstractBaseController):
@@ -135,7 +141,7 @@ class CreateController(AbstractBaseController):
         cname = self.app.pargs.cname
         tier = self.app.pargs.tier
         itype = self.app.pargs.instance_type
-        solution_string = self.app.pargs.platform or solution_stack_ops.get_default_solution_stack()
+        platform = self.app.pargs.platform
         single = self.app.pargs.single
         iprofile = self.app.pargs.instance_profile
         service_role = self.app.pargs.service_role
@@ -204,11 +210,12 @@ class CreateController(AbstractBaseController):
         if itype and instance_types:
             raise InvalidOptionsError(strings['create.itype_and_instances'])
 
+        platform = _determine_platform(platform, iprofile)
+
         app_name = self.get_app_name()
         tags = tagops.get_and_validate_tags(tags)
         envvars = get_and_validate_envars(envvars)
         process_app_version = fileoperations.env_yaml_exists() or process
-        platform = get_platform(solution_string, iprofile)
         template_name = get_template_name(app_name, cfg)
         tier = get_environment_tier(tier)
         env_name = provided_env_name or get_environment_name(app_name, group)
@@ -441,24 +448,6 @@ def get_environment_name(app_name, group):
     return env_name or io.prompt_for_environment_name(get_unique_environment_name(app_name))
 
 
-def get_platform(solution_string, iprofile=None):
-    """
-    Set a PlatformVersion or a SolutionStack based on the `solution_string`.
-    :param solution_string: The value of the `--platform` argument input by the customer
-    :param iprofile: The instance profile, if any, the customer passed as argument
-    :return: a PlatformVersion or a SolutionStack object depending on whether the match was
-        against an ARN of a Solution Stack name.
-    """
-    solution = solution_stack_ops.find_solution_stack_from_string(solution_string)
-    solution = solution or solution_stack_ops.get_solution_stack_from_customer()
-
-    if isinstance(solution, SolutionStack):
-        if solution.language_name == 'Multi-container Docker' and not iprofile:
-            io.log_warning(prompts['ecs.permissions'])
-
-    return solution
-
-
 def get_environment_tier(tier):
     """
     Set the 'tier' for the environment from the raw value received for the `--tier`
@@ -585,6 +574,32 @@ def get_template_name(app_name, cfg):
             cfg = 'default'
 
     return saved_configs.resolve_config_name(app_name, cfg)
+
+
+def _determine_platform(platform_string=None, iprofile=None):
+    platform = None
+
+    if not platform_string:
+        platform_string = platformops.get_configured_default_platform()
+
+    if platform_string:
+        platform = platformops.get_platform_for_platform_string(
+            platform_string)
+    else:
+        platform = platformops.prompt_for_platform()
+
+    if isinstance(platform, SolutionStack):
+        if platform.language_name == 'Multi-container Docker' and not iprofile:
+            io.log_warning(prompts['ecs.permissions'])
+    if isinstance(platform, PlatformVersion):
+        platform.hydrate(elasticbeanstalk.describe_platform_version)
+        if platform.platform_branch_lifecycle_state == platform_branch_lifecycle_states.RETIRED:
+            raise RetiredPlatformBranchError(alerts['platformbranch.retired'])
+        statusops.alert_platform_status(platform)
+        if 'Multi-container Docker' in platform.platform_name and not iprofile:
+            io.log_warning(prompts['ecs.permissions'])
+
+    return platform
 
 
 def _sleep(seconds):

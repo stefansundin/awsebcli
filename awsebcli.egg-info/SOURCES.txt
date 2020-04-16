@@ -167,6 +167,8 @@ ebcli/operations/listops.py
 ebcli/operations/localops.py
 ebcli/operations/logsops.py
 ebcli/operations/openops.py
+ebcli/operations/platform_branch_ops.py
+ebcli/operations/platform_version_ops.py
 ebcli/operations/platformops.py
 ebcli/operations/restoreops.py
 ebcli/operations/saved_configs.py
@@ -183,5 +185,6 @@ ebcli/operations/tagops/__init__.py
 ebcli/operations/tagops/taglist.py
 ebcli/operations/tagops/tagops.py
 ebcli/resources/__init__.py
+ebcli/resources/regex.py
 ebcli/resources/statics.py
 ebcli/resources/strings.py
