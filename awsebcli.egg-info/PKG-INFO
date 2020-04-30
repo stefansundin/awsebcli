@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: awsebcli
-Version: 3.18.0
+Version: 3.18.1
 Summary: Command Line Interface for AWS EB.
 Home-page: http://aws.amazon.com/elasticbeanstalk/
 Author: AWS Elastic Beanstalk
@@ -85,6 +85,14 @@ Description: ======
         
         Changelog
         =========
+        -------------------
+        3.18.1 (2020-04-28)
+        -------------------
+        - Added af-south-1 (Cape Town) region
+        - Added eu-south-1 (Milano) region
+        - Fixed bug causing `eb logs` command to fail when logs contain unicode characters
+        - Fixed bug that caused `eb platform` list to fail in un-initialized directory
+        
         -------------------
         3.18.0 (2020-04-09)
         -------------------
