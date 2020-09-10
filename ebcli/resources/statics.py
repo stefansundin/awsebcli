@@ -59,6 +59,8 @@ class namespaces(object):
     SPOT = 'aws:ec2:instances'
     CLOUDWATCH_LOGS = 'aws:elasticbeanstalk:cloudwatch:logs'
     CLOUDWATCH_ENVIRONMENT_HEALTH_LOGS = 'aws:elasticbeanstalk:cloudwatch:logs:health'
+    LOAD_BALANCER_V2 = 'aws:elbv2:loadbalancer'
+    LISTENER = 'aws:elbv2:listener:{}'
 
 
 class option_names(object):
@@ -104,6 +106,9 @@ class option_names(object):
     ON_DEMAND_PERCENTAGE_ABOVE_BASE_CAPACITY = 'SpotFleetOnDemandAboveBasePercentage'
     SPOT_MAX_PRICE = 'SpotMaxPrice'
     INSTANCE_TYPES = 'InstanceTypes'
+    LOAD_BALANCER_IS_SHARED = 'LoadBalancerIsShared'
+    SHARED_LOAD_BALANCER = 'SharedLoadBalancer'
+    LISTENER_RULE = 'Rules'
 
 
 class option_values(object):
