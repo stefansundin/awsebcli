@@ -744,6 +744,7 @@ alerts = {
 
 flag_text = {
     'general.env': 'environment name',
+
     'base.version': 'show application/version info',
     'base.verbose': 'toggle verbose output',
     'base.profile': 'use a specific profile from your credential file',
@@ -764,6 +765,9 @@ flag_text = {
                          'for your code.'
                          ' Availables sources: {codecommit}. Available actions: '
                          '{enable, disable}',
+    'config.display': 'display current environment configuration settings',
+    'config.format': 'string format for output:  JSON or YAML',
+    'config.update': 'update configuration settings for current environment',
     'config.tags': 'a comma separated list of tags as key=value pairs',
     'create.name': 'desired Environment name',
     'create.cname': 'cname prefix',
@@ -920,6 +924,10 @@ flag_text = {
 
     'codesource.sourcename': 'name of the code source to set as default',
 
+    'appversion.create': 'Create a new version for your application.',
+    'appversion.application': 'The name of the application you are addressing.',
+    'appversion.staged': 'Create application version using files staged in git index instead of the HEAD commit.',
+    'appversion.source': 'Source of code to create application version directly. example: source_location/repo/branch',
     'appversion.delete': 'delete the specified application version',
 
     'lifecycle.print': 'prints the current application version lifecycle policy',
