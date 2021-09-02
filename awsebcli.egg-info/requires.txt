@@ -11,7 +11,7 @@ six<1.15.0,>=1.11.0
 termcolor==1.1.0
 wcwidth<0.2.0,>=0.1.7
 PyYAML<5.5,>=5.3.1
-urllib3<1.26,>=1.25.4
+urllib3>=1.26.5
 
 [:sys_platform == "win32" and python_version < "3.6"]
 pypiwin32==219
